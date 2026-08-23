@@ -1,0 +1,17 @@
+/target/
+.moon/
+.repos/
+*.log
+*.asan
+*.tmp
+.DS_Store
+.mooncakes/
+_build/
+.moui/
+artifacts/
+.skia-cache/
+dist/
+.local_repos/
+.local_deps/
+.trace/
+pkg.generated.mbti
