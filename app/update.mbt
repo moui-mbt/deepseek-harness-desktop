@@ -167,60 +167,130 @@ pub fn update(model : Model, msg : Msg) -> Model {
     SwitchSite => model
     ToggleFloating => { ..model, floating_enabled: !model.floating_enabled }
     StartDshWeb =>
-      if model.dsh_web_status == DshWebStatus::Running {
+      if model.dsh_web_status != DshWebStatus::Stopped {
         model
       } else {
         {
           ..model,
-          dsh_web_status: DshWebStatus::Running,
-          status: "connecting",
+          dsh_web_status: DshWebStatus::Starting,
+          dsh_start_probes_remaining: dsh_start_probe_attempts,
+          status: "starting DSH Web",
           url: model.harness_url,
           active_site: Harness,
         }
       }
     StopDshWeb =>
-      if model.dsh_web_status == DshWebStatus::Stopped {
+      if model.dsh_web_status == DshWebStatus::Stopped ||
+        model.dsh_web_status == DshWebStatus::Stopping {
         model
       } else {
         {
           ..model,
-          dsh_web_status: DshWebStatus::Stopped,
-          status: "dsh web stopped",
+          dsh_web_status: DshWebStatus::Stopping,
+          dsh_start_probes_remaining: 0,
+          status: "stopping DSH Web",
         }
       }
     DshCheckResult(result) =>
       match result {
         @services.ServiceTaskResult::Success(running) =>
           if running {
-            { ..model, dsh_web_status: DshWebStatus::Running, status: "connecting" }
+            {
+              ..model,
+              dsh_web_status: DshWebStatus::Running,
+              dsh_start_probes_remaining: 0,
+              status: "connecting",
+            }
+          } else if model.dsh_web_status == DshWebStatus::Starting &&
+            model.dsh_start_probes_remaining > 1 {
+            {
+              ..model,
+              dsh_start_probes_remaining: model.dsh_start_probes_remaining - 1,
+            }
+          } else if model.dsh_web_status == DshWebStatus::Starting &&
+            model.dsh_start_probes_remaining == 1 {
+            {
+              ..model,
+              dsh_web_status: DshWebStatus::Stopped,
+              dsh_start_probes_remaining: 0,
+              status: "failed: DSH Web did not become ready within 10 seconds",
+            }
           } else {
-            { ..model, dsh_web_status: DshWebStatus::Stopped, status: "dsh web stopped" }
+            {
+              ..model,
+              dsh_web_status: DshWebStatus::Stopped,
+              dsh_start_probes_remaining: 0,
+              status: "dsh web stopped",
+            }
           }
-        @services.ServiceTaskResult::Failure(_) =>
-          { ..model, dsh_web_status: DshWebStatus::Stopped, status: "dsh web stopped" }
+        @services.ServiceTaskResult::Failure(error) =>
+          {
+            ..model,
+            dsh_web_status: DshWebStatus::Stopped,
+            dsh_start_probes_remaining: 0,
+            status: "failed to check DSH: " + error.message,
+          }
         @services.ServiceTaskResult::Cancelled =>
-          { ..model, dsh_web_status: DshWebStatus::Stopped, status: "dsh web stopped" }
+          {
+            ..model,
+            dsh_web_status: DshWebStatus::Stopped,
+            dsh_start_probes_remaining: 0,
+            status: "DSH check cancelled",
+          }
       }
     DshStartResult(result) =>
       match result {
-        @services.ServiceTaskResult::Success(_) =>
+        @services.ServiceTaskResult::Success(_) => model
+        @services.ServiceTaskResult::Failure(error) =>
           {
             ..model,
-            dsh_web_status: DshWebStatus::Running,
-            status: "connecting",
-            url: model.harness_url,
-            active_site: Harness,
+            dsh_web_status: DshWebStatus::Stopped,
+            dsh_start_probes_remaining: 0,
+            status: "failed to start DSH: " + error.message,
           }
-        @services.ServiceTaskResult::Failure(_) => model
-        @services.ServiceTaskResult::Cancelled => model
+        @services.ServiceTaskResult::Cancelled =>
+          {
+            ..model,
+            dsh_web_status: DshWebStatus::Stopped,
+            dsh_start_probes_remaining: 0,
+            status: "DSH start cancelled",
+          }
       }
     DshStopResult(result) =>
       match result {
         @services.ServiceTaskResult::Success(_) =>
-          { ..model, dsh_web_status: DshWebStatus::Stopped, status: "dsh web stopped" }
-        @services.ServiceTaskResult::Failure(_) => model
-        @services.ServiceTaskResult::Cancelled => model
+          {
+            ..model,
+            dsh_web_status: DshWebStatus::Stopped,
+            dsh_start_probes_remaining: 0,
+            status: "dsh web stopped",
+          }
+        @services.ServiceTaskResult::Failure(error) =>
+          {
+            ..model,
+            dsh_web_status: DshWebStatus::Running,
+            status: "failed to stop DSH: " + error.message,
+          }
+        @services.ServiceTaskResult::Cancelled =>
+          {
+            ..model,
+            dsh_web_status: DshWebStatus::Running,
+            status: "DSH stop cancelled",
+          }
       }
+    DshCleanupResult(result) =>
+      match result {
+        @services.ServiceTaskResult::Success(_) => model
+        @services.ServiceTaskResult::Failure(error) =>
+          {
+            ..model,
+            status: "failed: DSH did not become ready and cleanup failed: " +
+            error.message,
+          }
+        @services.ServiceTaskResult::Cancelled =>
+          { ..model, status: "failed: DSH cleanup was cancelled" }
+      }
+    DshProbeTick => model
     FloatingSecondaryTap =>
       update({ ..model, floating_collapsed: false }, OpenSettings)
     FloatingDragged(event) => update_floating_drag(model, event, None, None)

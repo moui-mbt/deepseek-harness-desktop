@@ -2,8 +2,16 @@
 /// DSH Web lifecycle controlled from the native menu bar.
 pub(all) enum DshWebStatus {
   Stopped
+  Starting
   Running
+  Stopping
 } derive(Eq, Debug)
+
+///|
+let dsh_start_probe_attempts = 40
+
+///|
+let dsh_start_probe_interval_ms = 250.0
 
 ///|
 /// DSH owns the product UI. This app only supplies native WebView surfaces.

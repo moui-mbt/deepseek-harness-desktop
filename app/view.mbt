@@ -44,31 +44,74 @@ fn view_with_viewport(
     model.theme_mode
   }
   let theme = theme_for_mode(selected_mode, system_color_scheme)
-  let content = if model.dsh_web_status == DshWebStatus::Stopped {
-    dsh_web_stopped_view(model, theme)
-  } else if model.web_view_available && model.settings_ready {
-    match controller {
-      Some(controller) =>
-        web_view(
-          controller~,
-          title=model.title,
-          background_color=Some(theme.palette.background),
-          color_scheme=Some(theme.scheme),
-          on_event=Some(event => WebViewEvent(event)),
-        )
-      None => loading_view(theme)
-    }
-  } else if model.web_view_available {
-    loading_view(theme)
-  } else {
-    unavailable_view(model, theme)
+  let content = match model.dsh_web_status {
+    DshWebStatus::Stopped => dsh_web_stopped_view(model, theme)
+    DshWebStatus::Starting =>
+      lifecycle_loading_view(
+        if model.dsh_start_probes_remaining == 0 {
+          "正在检查 DSH Web…"
+        } else {
+          "正在启动 DSH Web…"
+        },
+        theme,
+      )
+    DshWebStatus::Stopping =>
+      lifecycle_loading_view("正在停止 DSH Web…", theme)
+    DshWebStatus::Running =>
+      if model.web_view_available && model.settings_ready {
+        match controller {
+          Some(controller) =>
+            web_view(
+              controller~,
+              title=model.title,
+              background_color=Some(theme.palette.background),
+              color_scheme=Some(theme.scheme),
+              on_event=Some(event => WebViewEvent(event)),
+            )
+          None => loading_view(theme)
+        }
+      } else if model.web_view_available {
+        loading_view(theme)
+      } else {
+        unavailable_view(model, theme)
+      }
   }
-  let floating = if model.settings_presented || !model.floating_enabled {
+  let has_lifecycle_error = model.dsh_web_status == DshWebStatus::Running &&
+    (model.status.has_prefix("failed") || model.status == "DSH stop cancelled")
+  let floating = if model.settings_presented ||
+    !model.floating_enabled ||
+    has_lifecycle_error {
     @views.empty()
   } else {
     floating_button(model, theme, viewport_width, viewport_height)
   }
-  let body = @views.overlay(content, floating)
+  let content_with_status = if has_lifecycle_error {
+    @views.overlay(
+      content,
+      column(
+        [
+          container(
+            text(
+              model.status,
+              width=(viewport_width - 32.0).max(0.0),
+              height=44.0,
+            )
+            .caption()
+            .foreground(@graphics.Color::white()),
+            width=viewport_width,
+            height=52.0,
+            background=theme.palette.danger,
+            padding=8.0,
+          ),
+          spacer(min_length=0.0, weight=1.0),
+        ],
+        spacing=0.0,
+      ),
+    )
+  } else {
+    content
+  }
+  let body = @views.overlay(content_with_status, floating)
   let root = @views.dialog_host(
     body,
     dialog=Some(settings_dialog(model, theme)),
@@ -145,13 +188,19 @@ fn floating_button(
 
 ///|
 fn loading_view(theme : @moui.Theme) -> @moui.View[Msg] {
+  lifecycle_loading_view("正在连接 DSH Web…", theme)
+}
+
+///|
+fn lifecycle_loading_view(
+  label : String,
+  theme : @moui.Theme,
+) -> @moui.View[Msg] {
   container(
     column(
       [
         spacer(min_length=24.0, weight=1.0),
-        text("正在启动 DSH Web…", width=260.0, height=28.0).foreground(
-          theme.palette.muted,
-        ),
+        text(label, width=300.0, height=28.0).foreground(theme.palette.muted),
         spacer(min_length=24.0, weight=1.0),
       ],
       spacing=8.0,
@@ -244,16 +293,23 @@ fn unavailable_view(model : Model, theme : @moui.Theme) -> @moui.View[Msg] {
 
 ///|
 fn dsh_web_stopped_view(model : Model, theme : @moui.Theme) -> @moui.View[Msg] {
+  let status = if model.status == "dsh web stopped" {
+    text(
+      "使用菜单栏 DSH → 启动 DSH Web 以重新连接。",
+      width=520.0,
+      height=28.0,
+    ).foreground(theme.palette.muted)
+  } else {
+    text(model.status, width=520.0, height=44.0).foreground(
+      theme.palette.danger,
+    )
+  }
   container(
     column(
       [
         spacer(min_length=24.0, weight=1.0),
         text("DSH Web 已停止", width=400.0, height=36.0).title(),
-        text(
-          "使用菜单栏 DSH → 启动 DSH Web 以重新连接。",
-          width=460.0,
-          height=28.0,
-        ).foreground(theme.palette.muted),
+        status,
         text("当前 Harness: \{model.harness_url}", width=460.0, height=22.0)
         .caption()
         .foreground(theme.palette.muted),

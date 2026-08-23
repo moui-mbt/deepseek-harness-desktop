@@ -1,10 +1,12 @@
 import {
+  "moonbitlang/async",
   "wzzc-dev/moui/backend/macos" @macos_backend,
   "wzzc-dev/moui_skia_renderer" @render_skia,
   "wzzc-dev/moui/runtime",
   "wzzc-dev/moui_webview/backend/macos" @macos_webview,
   "wzzc-dev/moui_webview/host" @webview_host,
   "deepseek_harness_desktop/app",
+  "deepseek_harness_desktop/app/dsh_async",
 }
 
 supported_targets = "native"

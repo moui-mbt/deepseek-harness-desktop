@@ -13,27 +13,12 @@ pub fn program(
     None => None
   }
   let services = environment.services()
+  let timer_source = environment.timer()
   @moui.Program::new_with_environment(
     init=() => {
       let initial = Model::new(capability~, url~)
       let settings = request_settings_load(services)
-      let dsh_check = dsh_service
-        .check()
-        .effect(map=result => DshCheckResult(result))
-      let navigation = match controller {
-        Some(controller) =>
-          controller
-          .navigate(initial.url)
-          .effect(map=result => {
-            match result {
-              @webview_host.WebViewTaskResult::Success(_) =>
-                WebViewEvent(@webview_host.WebViewEvent::Ready([]))
-              _ => WebViewEvent(@webview_host.WebViewEvent::Disposed)
-            }
-          })
-        None => @moui.Effect::none()
-      }
-      (initial, @moui.Effect::batch([settings, dsh_check, navigation]))
+      (initial, settings)
     },
     update=(model, msg) => {
       let (next, effect) = update_with_services(model, msg, services)
@@ -48,29 +33,24 @@ pub fn program(
               _ => WebViewEvent(@webview_host.WebViewEvent::Disposed)
             }
           })
-        (Some(controller), StartDshWeb) =>
-          if model.url == next.url {
-            controller
-            .reload()
-            .effect(map=result => {
-              match result {
-                @webview_host.WebViewTaskResult::Success(_) =>
-                  WebViewEvent(@webview_host.WebViewEvent::Ready([]))
-                _ => WebViewEvent(@webview_host.WebViewEvent::Disposed)
-              }
-            })
-          } else {
-            controller
-            .navigate(next.url)
-            .effect(map=result => {
-              match result {
-                @webview_host.WebViewTaskResult::Success(_) =>
-                  WebViewEvent(@webview_host.WebViewEvent::Ready([]))
-                _ => WebViewEvent(@webview_host.WebViewEvent::Disposed)
-              }
-            })
-          }
-        (Some(controller), StopDshWeb) =>
+        (
+          Some(controller),
+          DshCheckResult(@services.ServiceTaskResult::Success(true)),
+        ) if model.dsh_web_status == DshWebStatus::Starting &&
+          next.dsh_web_status == DshWebStatus::Running =>
+          controller
+          .navigate(next.url)
+          .effect(map=result => {
+            match result {
+              @webview_host.WebViewTaskResult::Success(_) =>
+                WebViewEvent(@webview_host.WebViewEvent::Ready([]))
+              _ => WebViewEvent(@webview_host.WebViewEvent::Disposed)
+            }
+          })
+        (
+          Some(controller),
+          DshStopResult(@services.ServiceTaskResult::Success(_)),
+        ) =>
           controller
           .stop()
           .effect(map=result => {
@@ -83,10 +63,35 @@ pub fn program(
         _ => @moui.Effect::none()
       }
       let dsh_effect = match msg {
-        StartDshWeb =>
-          dsh_service.start().effect(map=result => DshStartResult(result))
-        StopDshWeb =>
-          dsh_service.stop().effect(map=result => DshStopResult(result))
+        SettingsLoaded(_) if next.harness_settings_ready =>
+          dsh_service
+          .check(harness_url=next.harness_url)
+          .effect(map=result => DshCheckResult(result))
+        StartDshWeb if model.dsh_web_status == DshWebStatus::Stopped =>
+          dsh_service
+          .start(harness_url=next.harness_url)
+          .effect(map=result => DshStartResult(result))
+        StopDshWeb if model.dsh_web_status == DshWebStatus::Running ||
+          model.dsh_web_status == DshWebStatus::Starting =>
+          dsh_service
+          .stop(harness_url=model.harness_url)
+          .effect(map=result => DshStopResult(result))
+        DshStartResult(@services.ServiceTaskResult::Success(_)) if model.dsh_web_status ==
+          DshWebStatus::Starting =>
+          dsh_service
+          .check(harness_url=model.harness_url)
+          .effect(map=result => DshCheckResult(result))
+        DshProbeTick if model.dsh_web_status == DshWebStatus::Starting &&
+          model.dsh_start_probes_remaining > 0 =>
+          dsh_service
+          .check(harness_url=model.harness_url)
+          .effect(map=result => DshCheckResult(result))
+        DshCheckResult(@services.ServiceTaskResult::Success(false)) if model.dsh_web_status ==
+          DshWebStatus::Starting &&
+          model.dsh_start_probes_remaining == 1 =>
+          dsh_service
+          .stop(harness_url=model.harness_url)
+          .effect(map=result => DshCleanupResult(result))
         _ => @moui.Effect::none()
       }
       let menu_effect = if model.dsh_web_status != next.dsh_web_status {
@@ -106,6 +111,19 @@ pub fn program(
     },
     view=(model, view_environment) => {
       view_with_environment(model, view_environment, controller)
+    },
+    subscriptions=model => {
+      match timer_source {
+        Some(source) if model.dsh_web_status == DshWebStatus::Starting &&
+          model.dsh_start_probes_remaining > 0 =>
+          source.subscription(
+            interval_ms=dsh_start_probe_interval_ms,
+            key="dsh:start-readiness",
+            label="DSH start readiness probe",
+            map=_ => DshProbeTick,
+          )
+        _ => @moui.Subscription::none()
+      }
     },
   ).with_commands(commands=model => program_commands(model))
 }

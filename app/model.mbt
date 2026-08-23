@@ -29,6 +29,7 @@ pub struct Model {
   floating_collapsed : Bool
   floating_enabled : Bool
   dsh_web_status : DshWebStatus
+  dsh_start_probes_remaining : Int
 }
 
 ///|
@@ -67,6 +68,8 @@ pub(all) enum Msg {
   DshCheckResult(@services.ServiceTaskResult[Bool])
   DshStartResult(@services.ServiceTaskResult[Unit])
   DshStopResult(@services.ServiceTaskResult[Unit])
+  DshCleanupResult(@services.ServiceTaskResult[Unit])
+  DshProbeTick
 }
 
 ///|
@@ -107,7 +110,8 @@ pub fn Model::new(
     floating_left: false,
     floating_collapsed: false,
     floating_enabled: true,
-    dsh_web_status: DshWebStatus::Running,
+    dsh_web_status: DshWebStatus::Starting,
+    dsh_start_probes_remaining: 0,
   }
 }
 

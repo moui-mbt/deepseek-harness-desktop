@@ -9,6 +9,7 @@ The retained app lives in `app/`; the macOS, Windows, and Linux entrypoints only
 ## Prerequisites
 
 - [MoonBit toolchain](https://www.moonbitlang.com/download/) (`moon` >= 0.1.8)
+- The `dsh` CLI installed on `PATH` or in a common user/system binary directory
 - Platform WebView dependencies:
   - **macOS**: Xcode and WebKit (bundled)
   - **Windows**: WebView2 runtime
@@ -27,7 +28,7 @@ moon run windows_skia --target native
 moon run linux_skia --target native
 ```
 
-The default surface is `http://127.0.0.1:3080`, matching a local DSH host. Start the Host before launching this composition root. The app does not duplicate DSH navigation, sessions, profiles, settings, or terminal UI.
+The default surface is `http://127.0.0.1:3080`, matching a local DSH host. On launch the app checks that endpoint. If it is not running, use **DSH → 启动 DSH Web**; the native host resolves the installed `dsh` executable, launches `dsh web` for the configured local host and port, and waits for the TCP endpoint before navigating. The app does not duplicate DSH navigation, sessions, profiles, settings, or terminal UI.
 
 All three composition roots use the Skia provider route. `MOUI_SKIA_RENDERER` selects `auto` (the default), `skia-gpu`, or `skia-raster`; auto prefers the native GPU surface and falls back to Skia raster. When native WebView is unavailable, the app shows its capability fallback instead of embedding a substitute surface.
 
@@ -39,7 +40,7 @@ On macOS, the settings dialog is a MoUI modal above the full-window WKWebView. W
 
 The first 32 points of the WebView are also a drag/no-drag strip: blank space moves the native window, while links, buttons, inputs, editable controls, and elements marked `data-moui-no-drag` remain clickable. DSH can add that attribute to any custom interactive control in its top bar.
 
-The menu bar adds a **DSH** menu with **启动 DSH Web** and **关闭 DSH Web**. Starting resumes the Harness surface and navigates to the configured Harness URL; stopping replaces the WebView with a lightweight placeholder that shows the current Harness URL and can be re-started from the same menu. Both actions are available as typed `ProgramCommand`s so they can be triggered from the host menu or programmatically.
+The menu bar adds a **DSH** menu with **启动 DSH Web** and **关闭 DSH Web**. Starting creates an owned native process through `moonbitlang/async@0.21.0`, polls the configured Harness endpoint for up to 10 seconds, then navigates only after it is ready. Stopping cancels and reaps that process before replacing the WebView with a lightweight placeholder. Closing the desktop app exits its root async `TaskGroup`, which also cancels and waits for every DSH process it started. A DSH server that was already running when the app opened is detected and can be used, but neither the stop action nor app shutdown terminates it because the app does not own that process. Both actions are available as typed `ProgramCommand`s so they can be triggered from the host menu or programmatically.
 
 ## Theming & Navigation
 
@@ -60,7 +61,8 @@ The native composition root installs the versioned `dsh-shell` HostPatch (`v1.0.
 │   ├── view.mbt
 │   ├── program.mbt
 │   ├── runtime.mbt
-│   └── commands.mbt
+│   ├── commands.mbt
+│   └── dsh_async/     # Native async DSH process/probe implementation
 ├── macos_skia/       # macOS composition root (WKWebView + Skia)
 ├── linux_skia/       # Linux composition root (WebKitGTK + Skia)
 ├── windows_skia/     # Windows composition root (WebView2 + Skia raster)
@@ -72,6 +74,7 @@ The native composition root installs the versioned `dsh-shell` HostPatch (`v1.0.
 
 ```sh
 moon test app --target native
+moon test app/dsh_async --target native
 moon check macos_skia --target native
 moon check linux_skia --target native
 moon check windows_skia --target native

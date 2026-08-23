@@ -470,17 +470,27 @@ test "dsh desktop waits for settings before placing the WebView" {
 ///|
 test "dsh desktop loads a valid persisted request URL" {
   let persisted = "https://dsh.example.test/"
+  let checked_url = Ref("")
   let settings = @services.SettingsServices::new(read=_key => {
     @services.ServiceTask::succeed(key="settings:read", value=Some(persisted))
+  })
+  let dsh_service = DshService::new(check=url => {
+    checked_url.val = url
+    @services.ServiceTask::succeed(key="dsh:check", value=true)
   })
   let environment = @services.AppEnvironment::new(
     services=@services.AppServices::new(settings~),
   )
   let runtime = test_runtime(
-    program(capability=WebViewCapability::available(), environment~),
+    program(
+      capability=WebViewCapability::available(),
+      environment~,
+      dsh_service~,
+    ),
     width=1280.0,
     height=820.0,
   )
+  inspect(checked_url.val, content=persisted)
   let frame = runtime.draw_frame()
   inspect(frame.platform_views.length(), content="1")
   inspect(frame.platform_views[0].property_or("url", ""), content="")
@@ -761,18 +771,39 @@ test "dsh desktop menu bar exposes DSH Web start and stop" {
 
 ///|
 test "dsh desktop starts and stops DSH Web via menu commands" {
-  let running = Model::new(capability=WebViewCapability::available())
+  let checking = Model::new(capability=WebViewCapability::available())
+  assert_true(checking.dsh_web_status == DshWebStatus::Starting)
+  let running = update(
+    checking,
+    DshCheckResult(@services.ServiceTaskResult::Success(true)),
+  )
   assert_true(running.dsh_web_status == DshWebStatus::Running)
-  let stopped = update(running, StopDshWeb)
+  let stopping = update(running, StopDshWeb)
+  assert_true(stopping.dsh_web_status == DshWebStatus::Stopping)
+  let stopped = update(
+    stopping,
+    DshStopResult(@services.ServiceTaskResult::Success(())),
+  )
   assert_true(stopped.dsh_web_status == DshWebStatus::Stopped)
   inspect(stopped.status, content="dsh web stopped")
   // Stopping twice is idempotent
   let still_stopped = update(stopped, StopDshWeb)
   assert_true(still_stopped.dsh_web_status == DshWebStatus::Stopped)
-  let restarted = update(stopped, StartDshWeb)
+  let restarting = update(stopped, StartDshWeb)
+  assert_true(restarting.dsh_web_status == DshWebStatus::Starting)
+  inspect(restarting.status, content="starting DSH Web")
+  inspect(restarting.url, content=restarting.harness_url)
+  let spawned = update(
+    restarting,
+    DshStartResult(@services.ServiceTaskResult::Success(())),
+  )
+  assert_true(spawned.dsh_web_status == DshWebStatus::Starting)
+  let restarted = update(
+    spawned,
+    DshCheckResult(@services.ServiceTaskResult::Success(true)),
+  )
   assert_true(restarted.dsh_web_status == DshWebStatus::Running)
   inspect(restarted.status, content="connecting")
-  inspect(restarted.url, content=restarted.harness_url)
   // Starting twice is idempotent
   let still_running = update(restarted, StartDshWeb)
   assert_true(still_running.dsh_web_status == DshWebStatus::Running)
