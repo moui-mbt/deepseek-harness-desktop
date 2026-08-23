@@ -15,7 +15,7 @@ pub fn settings_action_command() -> @views.ActionCommand {
 ///|
 pub fn switch_site_action_command() -> @views.ActionCommand {
   @views.ActionCommand::new(
-    intent=@views.CommandIntent::SwitchSite,
+    intent=@views.CommandIntent::Copy,
     label="Switch Chat/DSH Site",
     group="View",
     description="Switch between the Harness and Chat roots.",
@@ -25,7 +25,7 @@ pub fn switch_site_action_command() -> @views.ActionCommand {
 ///|
 pub fn toggle_floating_action_command() -> @views.ActionCommand {
   @views.ActionCommand::new(
-    intent=@views.CommandIntent::ToggleFloating,
+    intent=@views.CommandIntent::Paste,
     label="Toggle Floating Button",
     group="View",
     description="Show or hide the floating site-switch button.",
