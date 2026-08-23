@@ -33,22 +33,28 @@ pub fn toggle_floating_action_command() -> @views.ActionCommand {
 }
 
 ///|
-pub fn start_dsh_web_action_command() -> @views.ActionCommand {
+pub fn start_dsh_web_action_command(
+  enabled? : Bool = true,
+) -> @views.ActionCommand {
   @views.ActionCommand::new(
     intent=@views.CommandIntent::Submit,
     label="启动 DSH Web",
     group="DSH",
     description="启动本地 DSH Web 服务并导航至 Harness。",
+    enabled~,
   )
 }
 
 ///|
-pub fn stop_dsh_web_action_command() -> @views.ActionCommand {
+pub fn stop_dsh_web_action_command(
+  enabled? : Bool = true,
+) -> @views.ActionCommand {
   @views.ActionCommand::new(
     intent=@views.CommandIntent::Cancel,
     label="关闭 DSH Web",
     group="DSH",
     description="关闭本地 DSH Web 服务并显示占位。",
+    enabled~,
   )
 }
 
@@ -72,7 +78,13 @@ fn edit_action_command(
 }
 
 ///|
-pub fn application_menus() -> Array[@services.ApplicationMenu] {
+pub fn application_menus(
+  model? : Model? = None,
+) -> Array[@services.ApplicationMenu] {
+  // Keep both items always enabled for now; the model-aware enabled
+  // can be reintroduced once the host menu bridge supports dynamic updates.
+  // The update logic already handles idempotency.
+  ignore(model)
   [
     @services.ApplicationMenu::application(items=[
       @services.ApplicationMenuItem::MenuCommand(settings_action_command()),
@@ -107,14 +119,19 @@ pub fn application_menus() -> Array[@services.ApplicationMenu] {
       ),
     ]),
     @services.ApplicationMenu::new(title="DSH", items=[
-      @services.ApplicationMenuItem::MenuCommand(start_dsh_web_action_command()),
-      @services.ApplicationMenuItem::MenuCommand(stop_dsh_web_action_command()),
+      @services.ApplicationMenuItem::MenuCommand(
+        start_dsh_web_action_command(),
+      ),
+      @services.ApplicationMenuItem::MenuCommand(
+        stop_dsh_web_action_command(),
+      ),
     ]),
   ]
 }
 
 ///|
-fn program_commands() -> Array[@moui.ProgramCommand[Msg]] {
+fn program_commands(model : Model) -> Array[@moui.ProgramCommand[Msg]] {
+  ignore(model)
   [
     @moui.ProgramCommand::new(
       command=settings_action_command(),

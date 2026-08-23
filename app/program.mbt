@@ -78,17 +78,25 @@ pub fn program(
           })
         _ => @moui.Effect::none()
       }
+      let menu_effect = if model.dsh_web_status != next.dsh_web_status {
+        services
+        .menus()
+        .install_application(application_menus(model=Some(next)))
+        .effect(map=_ => SettingsBackdropPressed)
+      } else {
+        @moui.Effect::none()
+      }
       match msg {
         WebViewEvent(@webview_host.WebViewEvent::NavigationFinished(navigation)) =>
           on_navigation_finished(navigation.url)
         _ => ()
       }
-      (next, @moui.Effect::batch([effect, navigation]))
+      (next, @moui.Effect::batch([effect, navigation, menu_effect]))
     },
     view=(model, view_environment) => {
       view_with_environment(model, view_environment, controller)
     },
-  ).with_commands(commands=_model => program_commands())
+  ).with_commands(commands=model => program_commands(model))
 }
 
 ///|
