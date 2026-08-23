@@ -200,19 +200,13 @@ fn dsh_probe_harness(url : String) -> Bool {
   dsh_tcp_probe(host, port)
 }
 
-///|
-#cfg(target="native")
 fn dsh_tcp_probe(host : String, port : Int) -> Bool {
   ignore(host)
   ignore(port)
   false
 }
 
-///|
-#cfg(not(target="native"))
-fn dsh_tcp_probe(_host : String, _port : Int) -> Bool {
-  false
-}
+
 
 ///|
 fn dsh_parse_port(s : String) -> Int? {
@@ -243,6 +237,8 @@ fn try_spawn_dsh(cmd : String, args : Array[String]) -> Int? {
 fn try_spawn_dsh(_cmd : String, _args : Array[String]) -> Int? {
   None
 }
+
+
 
 #cfg(target="native")
 fn dsh_kill_pid(pid : Int) -> Unit {
