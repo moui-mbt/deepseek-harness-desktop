@@ -254,17 +254,10 @@ fn dsh_web_stopped_view(model : Model, theme : @moui.Theme) -> @moui.View[Msg] {
           width=460.0,
           height=28.0,
         ).foreground(theme.palette.muted),
-        text(
-          "当前 Harness: \{model.harness_url}",
-          width=460.0,
-          height=22.0,
-        ).caption().foreground(theme.palette.muted),
-        button(
-          "启动 DSH Web",
-          on_click=StartDshWeb,
-          width=160.0,
-          height=40.0,
-        ),
+        text("当前 Harness: \{model.harness_url}", width=460.0, height=22.0)
+        .caption()
+        .foreground(theme.palette.muted),
+        button("启动 DSH Web", on_click=StartDshWeb, width=160.0, height=40.0),
         spacer(min_length=24.0, weight=1.0),
       ],
       spacing=14.0,

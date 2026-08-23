@@ -182,7 +182,11 @@ pub fn update(model : Model, msg : Msg) -> Model {
       if model.dsh_web_status == DshWebStatus::Stopped {
         model
       } else {
-        { ..model, dsh_web_status: DshWebStatus::Stopped, status: "dsh web stopped" }
+        {
+          ..model,
+          dsh_web_status: DshWebStatus::Stopped,
+          status: "dsh web stopped",
+        }
       }
     FloatingSecondaryTap =>
       update({ ..model, floating_collapsed: false }, OpenSettings)
