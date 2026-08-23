@@ -13,9 +13,11 @@ pub fn settings_action_command() -> @views.ActionCommand {
 }
 
 ///|
+// Example-local intents are encoded via distinct labels/groups on a generic
+// core intent. This keeps `moui/core` free of DSH-specific CommandIntents.
 pub fn switch_site_action_command() -> @views.ActionCommand {
   @views.ActionCommand::new(
-    intent=@views.CommandIntent::Copy,
+    intent=@views.CommandIntent::Activate,
     label="Switch Chat/DSH Site",
     group="View",
     description="Switch between the Harness and Chat roots.",
@@ -25,7 +27,7 @@ pub fn switch_site_action_command() -> @views.ActionCommand {
 ///|
 pub fn toggle_floating_action_command() -> @views.ActionCommand {
   @views.ActionCommand::new(
-    intent=@views.CommandIntent::Paste,
+    intent=@views.CommandIntent::Activate,
     label="Toggle Floating Button",
     group="View",
     description="Show or hide the floating site-switch button.",
@@ -37,7 +39,7 @@ pub fn start_dsh_web_action_command(
   enabled? : Bool = true,
 ) -> @views.ActionCommand {
   @views.ActionCommand::new(
-    intent=@views.CommandIntent::Submit,
+    intent=@views.CommandIntent::Activate,
     label="启动 DSH Web",
     group="DSH",
     description="启动本地 DSH Web 服务并导航至 Harness。",
@@ -50,7 +52,7 @@ pub fn stop_dsh_web_action_command(
   enabled? : Bool = true,
 ) -> @views.ActionCommand {
   @views.ActionCommand::new(
-    intent=@views.CommandIntent::Cancel,
+    intent=@views.CommandIntent::Activate,
     label="关闭 DSH Web",
     group="DSH",
     description="关闭本地 DSH Web 服务并显示占位。",

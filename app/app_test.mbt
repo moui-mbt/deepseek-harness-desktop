@@ -617,11 +617,11 @@ test "dsh desktop menu bar exposes site switch and floating toggle" {
   })
   inspect(commands.length(), content="2")
   assert_true(
-    commands.any(command => command.intent == @core.CommandIntent::Copy),
+    commands.any(command => command.label == "Switch Chat/DSH Site"),
   )
   assert_true(
     commands.any(command => {
-      command.intent == @core.CommandIntent::Paste
+      command.label == "Toggle Floating Button"
     }),
   )
   let runtime = test_runtime(
