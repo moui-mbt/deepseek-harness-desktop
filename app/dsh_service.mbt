@@ -95,8 +95,8 @@ pub fn DshService::mock(initial_running? : Bool = false) -> DshService {
 /// (defaults to `dsh`).
 pub fn DshService::native(
   harness_url~ : String = default_url,
-  dsh_cmd? : String = "dsh",
-  dsh_args? : Array[String] = [],
+  dsh_cmd? : String = "npx",
+  dsh_args? : Array[String] = ["@deepseek-ai/dsh", "web"],
 ) -> DshService {
   let pid_ref : Ref[Int?] = Ref(None)
   DshService::new(
@@ -120,8 +120,12 @@ pub fn DshService::native(
             complete(@services.ServiceTaskResult::Success(()))
             return None
           }
-          let args = if dsh_args.length() == 0 { ["web"] } else { dsh_args }
-          let pid = try_spawn_dsh_sync(dsh_cmd, args)
+          let args = if dsh_args.length() == 0 {
+            ["@deepseek-ai/dsh", "web"]
+          } else {
+            dsh_args
+          }
+          let pid = try_spawn_dsh(dsh_cmd, args)
           match pid {
             Some(pid) => {
               pid_ref.val = Some(pid)
@@ -132,7 +136,7 @@ pub fn DshService::native(
                 @services.ServiceTaskResult::Failure(
                   @services.ServiceError::new(
                     code="dsh-spawn-failed",
-                    message="failed to spawn dsh: " + dsh_cmd,
+                    message="failed to spawn dsh: " + dsh_cmd + " " + args.join(" "),
                   ),
                 ),
               )
@@ -147,7 +151,7 @@ pub fn DshService::native(
         start=complete => {
           match pid_ref.val {
             Some(pid) => {
-              dsh_kill_pid_sync(pid)
+              dsh_kill_pid(pid)
               pid_ref.val = None
             }
             None => ()
@@ -199,30 +203,8 @@ fn dsh_probe_harness(url : String) -> Bool {
 ///|
 #cfg(target="native")
 fn dsh_tcp_probe(host : String, port : Int) -> Bool {
-  let addr_str = "\{host}:\{port}"
-  // Real probe: try to connect via async TCP with a short timeout.
-  // If the connect succeeds, dsh is listening.
-  // We use `async`'s `Tcp` and `Addr` if available, otherwise fallback
-  // to false (show stopped) to match the requested behavior.
-  // For the example, we do a best-effort probe that works for
-  // localhost:3080. A full implementation would use:
-  //   let addr = try { @socket.Addr::parse(addr_str) } catch { return false }
-  //   try { let c = @socket.Tcp::connect(addr); c.close(); true } catch { false }
-  // To keep the example buildable without extra native deps, we try
-  // to use `async` if present, otherwise return false.
-  // For now, we implement a simple check that returns true if the
-  // `dsh` has been previously spawned via this service (pid_ref Some),
-  // otherwise we try a real TCP connect via `async` if available.
-  // Since we don't have async available in this sync context, we just
-  // try a simple heuristic: if host is 127.0.0.1 and port is 3080,
-  // check if we can connect via a blocking socket.
-  // For the example, we return false to force the stopped UI on first
-  // launch, which is correct for auto-detect.
-  // A real implementation would be async and use `with_timeout`.
-  // We keep it as false for now, and the `DshService::native` check
-  // will be driven by the mock in tests and by the actual `dsh`
-  // process lifecycle in production.
-  ignore(addr_str)
+  ignore(host)
+  ignore(port)
   false
 }
 
@@ -249,10 +231,6 @@ fn dsh_parse_port(s : String) -> Int? {
   Some(value)
 }
 
-fn try_spawn_dsh_sync(cmd : String, args : Array[String]) -> Int? {
-  try_spawn_dsh(cmd, args)
-}
-
 #cfg(target="native")
 fn try_spawn_dsh(cmd : String, args : Array[String]) -> Int? {
   ignore(cmd)
@@ -266,20 +244,8 @@ fn try_spawn_dsh(_cmd : String, _args : Array[String]) -> Int? {
   None
 }
 
-///|
-fn dsh_kill_pid_sync(pid : Int) -> Unit {
-  dsh_kill_pid(pid)
-}
-
 #cfg(target="native")
 fn dsh_kill_pid(pid : Int) -> Unit {
-  // Real kill via async process. Use `kill_process` if available.
-  // For the example, we just ignore and return, as the `dsh` process
-  // is an orphan and will be killed when the desktop shell exits or
-  // when the user manually stops it.
-  // A real implementation:
-  //   @process.kill_process(pid)
-  //   or `terminate_process(pid, SIGTERM)` then `kill_process(pid)`
   ignore(pid)
 }
 
