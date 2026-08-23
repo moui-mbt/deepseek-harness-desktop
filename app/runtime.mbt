@@ -5,6 +5,7 @@
 pub fn runtime(
   capabilities~ : @webview_host.HostWebViewCapabilities,
   controller~ : @webview_host.WebViewController,
+  chat_controller? : @webview_host.WebViewController? = None,
   environment? : @services.AppEnvironment = @services.AppEnvironment::new(),
   dsh_service? : DshService = DshService::unavailable(),
   url? : String = default_url,
@@ -17,6 +18,7 @@ pub fn runtime(
       WebViewCapability::unavailable(description=capabilities.description)
     },
     controller=Some(controller),
+    chat_controller~,
     environment~,
     dsh_service~,
     url~,
@@ -30,6 +32,21 @@ pub fn runtime(
 /// values; the page cannot widen them through a bridge envelope.
 pub fn create_controller(
   host : @webview_host.WebViewHost,
+) -> @webview_host.WebViewController {
+  create_controller_with_id(host, "dsh-desktop-surface")
+}
+
+///|
+pub fn create_chat_controller(
+  host : @webview_host.WebViewHost,
+) -> @webview_host.WebViewController {
+  create_controller_with_id(host, "dsh-desktop-chat-surface")
+}
+
+///|
+fn create_controller_with_id(
+  host : @webview_host.WebViewHost,
+  id : String,
 ) -> @webview_host.WebViewController {
   let origins = [
     @webview_host.WebViewOrigin::parse(default_url).unwrap(),
@@ -61,7 +78,7 @@ pub fn create_controller(
   )
   host
   .create_controller(
-    id="dsh-desktop-surface",
+    id~,
     config=@webview_host.WebViewControllerConfig::new(
       security~,
       host_patches=[patch],

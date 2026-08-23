@@ -1,10 +1,23 @@
 ///|
+test "dsh desktop hides the floating button by default" {
+  let model = Model::new(capability=WebViewCapability::available())
+  assert_false(model.floating_enabled)
+  let runtime = test_runtime(
+    program(capability=WebViewCapability::available()),
+    width=1280.0,
+    height=820.0,
+  )
+  assert_true(runtime.draw_frame().overlay_bounds is None)
+}
+
+///|
 test "dsh desktop emits native placement for the local Harness surface" {
   let runtime = test_runtime(
     program(capability=WebViewCapability::available()),
     width=1280.0,
     height=820.0,
   )
+  assert_true(runtime.dispatch_action_command(toggle_floating_action_command()))
   let frame = runtime.draw_frame()
   inspect(frame.platform_views.length(), content="1")
   inspect(frame.platform_views[0].id, content="dsh-desktop-surface")
@@ -160,7 +173,10 @@ test "dsh desktop sends explicit dark appearance to a light-system WebView" {
 ///|
 test "dsh desktop secondary floating tap opens settings" {
   let model = update(
-    Model::new(capability=WebViewCapability::available()),
+    update(
+      Model::new(capability=WebViewCapability::available()),
+      ToggleFloating,
+    ),
     FloatingSecondaryTap,
   )
   assert_true(model.settings_presented)
@@ -173,6 +189,7 @@ test "dsh desktop floating button receives primary pointer input" {
     width=1280.0,
     height=820.0,
   )
+  assert_true(runtime.dispatch_action_command(toggle_floating_action_command()))
   ignore(runtime.draw_frame())
   let button = test_semantics_node(
     runtime,
@@ -229,7 +246,10 @@ test "dsh desktop floating button receives primary pointer input" {
 
 ///|
 test "dsh desktop floating button keeps a free position away from edges" {
-  let model = Model::new(capability=WebViewCapability::available())
+  let model = update(
+    Model::new(capability=WebViewCapability::available()),
+    ToggleFloating,
+  )
   let moved = update(
     model,
     FloatingDragged({
@@ -268,7 +288,10 @@ test "dsh desktop floating button keeps a free position away from edges" {
 
 ///|
 test "dsh desktop floating button docks and leaves a visible edge tab" {
-  let model = Model::new(capability=WebViewCapability::available())
+  let model = update(
+    Model::new(capability=WebViewCapability::available()),
+    ToggleFloating,
+  )
   let moved = update(
     model,
     FloatingDragged({
@@ -304,6 +327,7 @@ test "dsh desktop drag keeps the native overlay at the free position" {
     width=1280.0,
     height=820.0,
   )
+  assert_true(runtime.dispatch_action_command(toggle_floating_action_command()))
   ignore(runtime.draw_frame())
   let button = test_semantics_node(
     runtime,
@@ -349,7 +373,10 @@ test "dsh desktop drag keeps the native overlay at the free position" {
 
 ///|
 test "dsh desktop can dock from either side using the viewport" {
-  let model = Model::new(capability=WebViewCapability::available())
+  let model = update(
+    Model::new(capability=WebViewCapability::available()),
+    ToggleFloating,
+  )
   let left_docked = update(
     model,
     FloatingDraggedInViewport(
@@ -635,7 +662,8 @@ test "dsh desktop menu bar exposes site switch and floating toggle" {
     width=1280.0,
     height=820.0,
   )
-  ignore(runtime.draw_frame())
+  let initial = runtime.draw_frame()
+  assert_true(initial.overlay_bounds is None)
   // Switch Site reuses the same command identity as the floating button.
   assert_true(runtime.dispatch_action_command(switch_site_action_command()))
   let switched = runtime.draw_frame()
@@ -651,14 +679,87 @@ test "dsh desktop menu bar exposes site switch and floating toggle" {
       ),
     ),
   )
-  // Toggle Floating removes the button overlay without touching the WebView.
-  assert_true(runtime.dispatch_action_command(toggle_floating_action_command()))
-  let hidden = runtime.draw_frame()
-  assert_true(hidden.overlay_bounds is None)
-  assert_true(hidden.platform_views.length() == 1)
+  // Toggle Floating shows the button without touching the WebView.
   assert_true(runtime.dispatch_action_command(toggle_floating_action_command()))
   let shown = runtime.draw_frame()
   assert_true(shown.overlay_bounds is Some(_))
+  assert_true(shown.platform_views.length() == 1)
+  assert_true(runtime.dispatch_action_command(toggle_floating_action_command()))
+  let hidden = runtime.draw_frame()
+  assert_true(hidden.overlay_bounds is None)
+}
+
+///|
+test "dsh desktop lifecycle does not replace startup menu callbacks" {
+  let installs = Ref(0)
+  let menus = @services.MenuServices::new(install_application=_menus => {
+    installs.val = installs.val + 1
+    @services.ServiceTask::succeed(key="menu:application", value=())
+  })
+  let environment = @services.AppEnvironment::new(
+    services=@services.AppServices::new(menus~),
+  )
+  let runtime = test_runtime(
+    program(capability=WebViewCapability::available(), environment~),
+    width=1280.0,
+    height=820.0,
+  )
+  ignore(runtime.draw_frame())
+  inspect(installs.val, content="0")
+}
+
+///|
+test "dsh desktop keeps Harness and Chat loaded while switching visibility" {
+  let host = @webview_host.WebViewHost::new()
+  let harness = create_controller(host)
+  let chat = create_chat_controller(host)
+  let runtime = test_runtime(
+    program(
+      capability=WebViewCapability::available(),
+      controller=Some(harness),
+      chat_controller=Some(chat),
+    ),
+    width=1280.0,
+    height=820.0,
+  )
+  let initial = runtime.draw_frame()
+  inspect(initial.platform_views.length(), content="2")
+  inspect(initial.platform_views[0].id, content="dsh-desktop-surface")
+  inspect(initial.platform_views[0].property_or("visible", ""), content="true")
+  inspect(initial.platform_views[1].id, content="dsh-desktop-chat-surface")
+  inspect(initial.platform_views[1].property_or("visible", ""), content="false")
+  let initial_commands : Array[@webview_host.HostWebViewQueuedCommand] = []
+  ignore(host.drain_commands(command => initial_commands.push(command)))
+  assert_true(
+    initial_commands.any(command => {
+      command.controller_id == "dsh-desktop-surface"
+    }),
+  )
+  assert_true(
+    initial_commands.any(command => {
+      command.controller_id == "dsh-desktop-chat-surface"
+    }),
+  )
+  assert_true(runtime.dispatch_action_command(switch_site_action_command()))
+  let switched = runtime.draw_frame()
+  inspect(switched.platform_views.length(), content="2")
+  inspect(
+    switched.platform_views[0].property_or("visible", ""),
+    content="false",
+  )
+  inspect(switched.platform_views[1].property_or("visible", ""), content="true")
+  inspect(host.drain_commands(_ => ()), content="0")
+  assert_true(runtime.dispatch_action_command(switch_site_action_command()))
+  let switched_back = runtime.draw_frame()
+  inspect(
+    switched_back.platform_views[0].property_or("visible", ""),
+    content="true",
+  )
+  inspect(
+    switched_back.platform_views[1].property_or("visible", ""),
+    content="false",
+  )
+  inspect(host.drain_commands(_ => ()), content="0")
 }
 
 ///|
@@ -669,14 +770,14 @@ test "dsh desktop toggle floating button shows and hides the overlay" {
     height=820.0,
   )
   let initial = runtime.draw_frame()
-  assert_true(initial.overlay_bounds is Some(_))
-  let hidden = update(
+  assert_true(initial.overlay_bounds is None)
+  let visible = update(
     Model::new(capability=WebViewCapability::available()),
     ToggleFloating,
   )
-  assert_false(hidden.floating_enabled)
-  let visible = update(hidden, ToggleFloating)
   assert_true(visible.floating_enabled)
+  let hidden = update(visible, ToggleFloating)
+  assert_false(hidden.floating_enabled)
 }
 
 ///|
@@ -714,7 +815,7 @@ test "settings dialog accepts pointer editing cancel and save" {
       label=Some("Cancel"),
     ),
   )
-  assert_true(runtime.draw_frame().overlay_bounds is Some(_))
+  assert_true(runtime.draw_frame().overlay_bounds is None)
 
   assert_true(runtime.dispatch_action_command(command))
   ignore(runtime.draw_frame())
@@ -740,7 +841,7 @@ test "settings dialog accepts pointer editing cancel and save" {
     ),
   )
   let saved_frame = runtime.draw_frame()
-  assert_true(saved_frame.overlay_bounds is Some(_))
+  assert_true(saved_frame.overlay_bounds is None)
   inspect(saved_frame.platform_views[0].property_or("url", ""), content="")
 }
 

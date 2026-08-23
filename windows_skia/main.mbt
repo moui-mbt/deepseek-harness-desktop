@@ -3,6 +3,7 @@ async fn main {
   @async.with_task_group(group => {
     let host = @webview_host.WebViewHost::new()
     let controller = @app.create_controller(host)
+    let chat_controller = @app.create_chat_controller(host)
     let plugin = @windows_webview.create_windows_webview_plugin(host)
     let capabilities = @windows_webview.windows_webview_capabilities()
     let environment = @windows_backend.app_environment()
@@ -10,6 +11,7 @@ async fn main {
     let program = @app.runtime(
       capabilities~,
       controller~,
+      chat_controller=Some(chat_controller),
       environment~,
       dsh_service~,
     )

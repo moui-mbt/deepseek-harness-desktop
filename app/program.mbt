@@ -2,6 +2,7 @@
 pub fn program(
   capability~ : WebViewCapability,
   controller? : @webview_host.WebViewController? = None,
+  chat_controller? : @webview_host.WebViewController? = None,
   environment? : @services.AppEnvironment = @services.AppEnvironment::new(),
   dsh_service? : DshService = DshService::mock(initial_running=true),
   url? : String = default_url,
@@ -22,31 +23,33 @@ pub fn program(
     },
     update=(model, msg) => {
       let (next, effect) = update_with_services(model, msg, services)
-      let navigation = match (controller, msg) {
-        (Some(controller), SwitchSite) =>
-          controller
-          .navigate(next.url)
-          .effect(map=result => {
-            match result {
-              @webview_host.WebViewTaskResult::Success(_) =>
-                WebViewEvent(@webview_host.WebViewEvent::Ready([]))
-              _ => WebViewEvent(@webview_host.WebViewEvent::Disposed)
-            }
-          })
+      let site_navigation = match (controller, chat_controller, msg) {
+        (Some(_), Some(_), SwitchSite) => @moui.Effect::none()
+        (Some(controller), None, SwitchSite) =>
+          navigate_webview(controller, next.url)
+        _ => @moui.Effect::none()
+      }
+      let preload_navigation = if !model.settings_ready && next.settings_ready {
+        let chat = match chat_controller {
+          Some(controller) => navigate_webview(controller, next.chat_url)
+          None => @moui.Effect::none()
+        }
+        let harness = match controller {
+          Some(controller) if next.dsh_web_status == DshWebStatus::Running =>
+            navigate_webview(controller, next.harness_url)
+          _ => @moui.Effect::none()
+        }
+        @moui.Effect::batch([harness, chat])
+      } else {
+        @moui.Effect::none()
+      }
+      let lifecycle_navigation = match (controller, msg) {
         (
           Some(controller),
           DshCheckResult(@services.ServiceTaskResult::Success(true)),
         ) if model.dsh_web_status == DshWebStatus::Starting &&
           next.dsh_web_status == DshWebStatus::Running =>
-          controller
-          .navigate(next.url)
-          .effect(map=result => {
-            match result {
-              @webview_host.WebViewTaskResult::Success(_) =>
-                WebViewEvent(@webview_host.WebViewEvent::Ready([]))
-              _ => WebViewEvent(@webview_host.WebViewEvent::Disposed)
-            }
-          })
+          navigate_webview(controller, next.harness_url)
         (
           Some(controller),
           DshStopResult(@services.ServiceTaskResult::Success(_)),
@@ -60,6 +63,29 @@ pub fn program(
               _ => WebViewEvent(@webview_host.WebViewEvent::Disposed)
             }
           })
+        _ => @moui.Effect::none()
+      }
+      let settings_navigation = match msg {
+        HarnessSettingsSaved(value, @services.ServiceTaskResult::Success(_)) if value !=
+          model.harness_url =>
+          match controller {
+            Some(controller) => navigate_webview(controller, value)
+            None => @moui.Effect::none()
+          }
+        ChatSettingsSaved(value, @services.ServiceTaskResult::Success(_)) if value !=
+          model.chat_url =>
+          match (controller, chat_controller, model.active_site) {
+            (_, Some(controller), _) => navigate_webview(controller, value)
+            (Some(controller), None, Chat) =>
+              navigate_webview(controller, value)
+            _ => @moui.Effect::none()
+          }
+        SettingsSaved(value, @services.ServiceTaskResult::Success(_)) if value !=
+          model.harness_url =>
+          match controller {
+            Some(controller) => navigate_webview(controller, value)
+            None => @moui.Effect::none()
+          }
         _ => @moui.Effect::none()
       }
       let dsh_effect = match msg {
@@ -94,23 +120,23 @@ pub fn program(
           .effect(map=result => DshCleanupResult(result))
         _ => @moui.Effect::none()
       }
-      let menu_effect = if model.dsh_web_status != next.dsh_web_status {
-        services
-        .menus()
-        .install_application(application_menus(model=Some(next)))
-        .effect(map=_ => SettingsBackdropPressed)
-      } else {
-        @moui.Effect::none()
-      }
       match msg {
         WebViewEvent(@webview_host.WebViewEvent::NavigationFinished(navigation)) =>
           on_navigation_finished(navigation.url)
         _ => ()
       }
-      (next, @moui.Effect::batch([effect, navigation, dsh_effect, menu_effect]))
+      (
+        next,
+        @moui.Effect::batch([
+          effect, site_navigation, preload_navigation, lifecycle_navigation, settings_navigation,
+          dsh_effect,
+        ]),
+      )
     },
     view=(model, view_environment) => {
-      view_with_environment(model, view_environment, controller)
+      view_with_environment(
+        model, view_environment, controller, chat_controller,
+      )
     },
     subscriptions=model => {
       match timer_source {
@@ -126,6 +152,22 @@ pub fn program(
       }
     },
   ).with_commands(commands=model => program_commands(model))
+}
+
+///|
+fn navigate_webview(
+  controller : @webview_host.WebViewController,
+  url : String,
+) -> @moui.Effect[Msg] {
+  controller
+  .navigate(url)
+  .effect(map=result => {
+    match result {
+      @webview_host.WebViewTaskResult::Success(_) =>
+        WebViewEvent(@webview_host.WebViewEvent::Ready([]))
+      _ => WebViewEvent(@webview_host.WebViewEvent::Disposed)
+    }
+  })
 }
 
 ///|

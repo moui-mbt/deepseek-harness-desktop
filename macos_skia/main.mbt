@@ -3,6 +3,7 @@ async fn main {
   @async.with_task_group(group => {
     let host = @webview_host.WebViewHost::new()
     let controller = @app.create_controller(host)
+    let chat_controller = @app.create_chat_controller(host)
     let plugin = @macos_webview.create_macos_webview_plugin(host)
     let capabilities = @macos_webview.macos_webview_capabilities()
     let environment = @macos_backend.app_environment()
@@ -10,6 +11,7 @@ async fn main {
     let program = @app.runtime(
       capabilities~,
       controller~,
+      chat_controller=Some(chat_controller),
       environment~,
       dsh_service~,
     )

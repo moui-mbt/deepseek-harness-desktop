@@ -2,9 +2,11 @@
 
 Standalone native [MoUI](https://github.com/wzzc-dev/MoUI) desktop shell for [DeepSeek Harness](https://github.com/deepseek-ai). Extracted from `examples/deepseek_harness_desktop` in the MoUI monorepo.
 
-DSH owns the product UI and state; this app only embeds the local Harness surface in a controlled `moui_webview` platform view and reports a clear fallback when the native WebView is unavailable.
+DSH owns the product UI and state; this app embeds the local Harness and DeepSeek Chat surfaces in controlled `moui_webview` platform views and reports a clear fallback when the native WebView is unavailable.
 
 The retained app lives in `app/`; the macOS, Windows, and Linux entrypoints only assemble their native WebView plugin, Skia renderer, and native host.
+
+Implementation notes live in [docs/](docs/README.md).
 
 ## Prerequisites
 
@@ -44,9 +46,9 @@ The menu bar adds a **DSH** menu with **启动 DSH Web** and **关闭 DSH Web**.
 
 ## Theming & Navigation
 
-When switching between Harness (`http://127.0.0.1:3080`) and Chat (`https://chat.deepseek.com/`), the resolved Theme background is applied to the native WebView before navigation starts. This prevents a system-light/Chat-dark switch from exposing the native WebView's default white or black startup surface. On macOS the resolved mode is also applied as the WKWebView's native Aqua/Dark Aqua appearance.
+Harness and Chat use separate native WebViews. Chat starts loading in the background after settings are ready, while Harness navigates after the local DSH endpoint is ready. Switching sites only changes which retained WebView is visible, so returning to either site preserves its loaded page instead of starting another remote navigation. The resolved Theme background and native appearance are applied to both surfaces.
 
-The floating button (brand blue) toggles between Harness and Chat. It can be dragged, docked to either edge (leaving a 16px peek tab), and secondary-tapped to open Settings.
+The floating button (brand blue) is hidden by default. Use **View → Toggle Floating Button** to show it; it toggles between Harness and Chat, can be dragged or docked to either edge (leaving a 16px peek tab), and opens Settings on a secondary tap.
 
 The native composition root installs the versioned `dsh-shell` HostPatch (`v1.0.0`) before the first navigation and on every later configuration revision. Its stylesheet adjusts the expanded sidebar top inset, collapsed rail width, and related grid columns. The macOS traffic lights themselves are not resized.
 
@@ -63,6 +65,7 @@ The native composition root installs the versioned `dsh-shell` HostPatch (`v1.0.
 │   ├── runtime.mbt
 │   ├── commands.mbt
 │   └── dsh_async/     # Native async DSH process/probe implementation
+├── docs/             # DSH Desktop implementation and lifecycle notes
 ├── macos_skia/       # macOS composition root (WKWebView + Skia)
 ├── linux_skia/       # Linux composition root (WebKitGTK + Skia)
 ├── windows_skia/     # Windows composition root (WebView2 + Skia raster)

@@ -9,7 +9,14 @@ using @webview_views {web_view}
 /// environment. Native composition roots use `view_with_environment` below so
 /// the floating control can clamp itself to the actual window size.
 pub fn view(model : Model) -> @moui.View[Msg] {
-  view_with_viewport(model, 1280.0, 820.0, model.system_color_scheme, None)
+  view_with_viewport(
+    model,
+    1280.0,
+    820.0,
+    model.system_color_scheme,
+    None,
+    None,
+  )
 }
 
 ///|
@@ -17,6 +24,7 @@ fn view_with_environment(
   model : Model,
   view_environment : @moui.ViewEnvironment,
   controller : @webview_host.WebViewController?,
+  chat_controller : @webview_host.WebViewController?,
 ) -> @moui.View[Msg] {
   let viewport = view_environment.viewport_size()
   view_with_viewport(
@@ -25,6 +33,7 @@ fn view_with_environment(
     viewport.height,
     view_environment.environment().system_scheme,
     controller,
+    chat_controller,
   )
 }
 
@@ -35,6 +44,7 @@ fn view_with_viewport(
   viewport_height : Double,
   system_color_scheme : @state.ColorScheme,
   controller : @webview_host.WebViewController?,
+  chat_controller : @webview_host.WebViewController?,
 ) -> @moui.View[Msg] {
   // Preview the selected mode while Settings is open so the native WebView
   // surface and MoUI dialog use the same appearance before Save.
@@ -44,7 +54,7 @@ fn view_with_viewport(
     model.theme_mode
   }
   let theme = theme_for_mode(selected_mode, system_color_scheme)
-  let content = match model.dsh_web_status {
+  let fallback_content = match model.dsh_web_status {
     DshWebStatus::Stopped => dsh_web_stopped_view(model, theme)
     DshWebStatus::Starting =>
       lifecycle_loading_view(
@@ -75,6 +85,47 @@ fn view_with_viewport(
       } else {
         unavailable_view(model, theme)
       }
+  }
+  let content = match (controller, chat_controller) {
+    (Some(harness), Some(chat)) if model.web_view_available &&
+      model.settings_ready => {
+      let surfaces = @views.stack([
+        web_view(
+          controller=harness,
+          title=model.title,
+          visible=model.dsh_web_status == DshWebStatus::Running &&
+            model.active_site == Harness,
+          background_color=Some(theme.palette.background),
+          color_scheme=Some(theme.scheme),
+          on_event=if model.dsh_web_status == DshWebStatus::Running &&
+            model.active_site == Harness {
+            Some(event => WebViewEvent(event))
+          } else {
+            None
+          },
+        ),
+        web_view(
+          controller=chat,
+          title=model.title,
+          visible=model.dsh_web_status == DshWebStatus::Running &&
+            model.active_site == Chat,
+          background_color=Some(theme.palette.background),
+          color_scheme=Some(theme.scheme),
+          on_event=if model.dsh_web_status == DshWebStatus::Running &&
+            model.active_site == Chat {
+            Some(event => WebViewEvent(event))
+          } else {
+            None
+          },
+        ),
+      ])
+      if model.dsh_web_status == DshWebStatus::Running {
+        surfaces
+      } else {
+        @views.stack([surfaces, fallback_content])
+      }
+    }
+    _ => fallback_content
   }
   let has_lifecycle_error = model.dsh_web_status == DshWebStatus::Running &&
     (model.status.has_prefix("failed") || model.status == "DSH stop cancelled")

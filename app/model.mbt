@@ -109,7 +109,7 @@ pub fn Model::new(
     floating_y: 0.0,
     floating_left: false,
     floating_collapsed: false,
-    floating_enabled: true,
+    floating_enabled: false,
     dsh_web_status: DshWebStatus::Starting,
     dsh_start_probes_remaining: 0,
   }
