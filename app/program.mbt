@@ -34,10 +34,41 @@ pub fn program(
     update=(model, msg) => {
       let (next, effect) = update_with_services(model, msg, services)
       let navigation = match (controller, msg) {
-        (Some(controller), SwitchSite)
-        | (Some(controller), StartDshWeb) =>
+        (Some(controller), SwitchSite) =>
           controller
           .navigate(next.url)
+          .effect(map=result => {
+            match result {
+              @webview_host.WebViewTaskResult::Success(_) =>
+                WebViewEvent(@webview_host.WebViewEvent::Ready([]))
+              _ => WebViewEvent(@webview_host.WebViewEvent::Disposed)
+            }
+          })
+        (Some(controller), StartDshWeb) =>
+          if model.url == next.url {
+            controller
+            .reload()
+            .effect(map=result => {
+              match result {
+                @webview_host.WebViewTaskResult::Success(_) =>
+                  WebViewEvent(@webview_host.WebViewEvent::Ready([]))
+                _ => WebViewEvent(@webview_host.WebViewEvent::Disposed)
+              }
+            })
+          } else {
+            controller
+            .navigate(next.url)
+            .effect(map=result => {
+              match result {
+                @webview_host.WebViewTaskResult::Success(_) =>
+                  WebViewEvent(@webview_host.WebViewEvent::Ready([]))
+                _ => WebViewEvent(@webview_host.WebViewEvent::Disposed)
+              }
+            })
+          }
+        (Some(controller), StopDshWeb) =>
+          controller
+          .stop()
           .effect(map=result => {
             match result {
               @webview_host.WebViewTaskResult::Success(_) =>

@@ -1,5 +1,5 @@
 ///|
-using @views {column, container, spacer, text}
+using @views {button, column, container, spacer, text}
 
 ///|
 using @webview_views {web_view}
@@ -145,9 +145,20 @@ fn floating_button(
 
 ///|
 fn loading_view(theme : @moui.Theme) -> @moui.View[Msg] {
-  container(spacer(min_length=1.0, weight=1.0), padding=0.0).background(
-    theme.palette.surface,
-  )
+  container(
+    column(
+      [
+        spacer(min_length=24.0, weight=1.0),
+        text("正在启动 DSH Web…", width=260.0, height=28.0).foreground(
+          theme.palette.muted,
+        ),
+        spacer(min_length=24.0, weight=1.0),
+      ],
+      spacing=8.0,
+      align=@views.CrossAlign::Center,
+    ),
+    padding=24.0,
+  ).background(theme.palette.surface)
 }
 
 ///|
@@ -236,17 +247,27 @@ fn dsh_web_stopped_view(model : Model, theme : @moui.Theme) -> @moui.View[Msg] {
   container(
     column(
       [
-        spacer(min_length=120.0, weight=0.0),
-        text("DSH Web 已停止").title(),
-        text("使用菜单栏 DSH → 启动 DSH Web 以重新连接。").foreground(
-          theme.palette.muted,
+        spacer(min_length=24.0, weight=1.0),
+        text("DSH Web 已停止", width=400.0, height=36.0).title(),
+        text(
+          "使用菜单栏 DSH → 启动 DSH Web 以重新连接。",
+          width=460.0,
+          height=28.0,
+        ).foreground(theme.palette.muted),
+        text(
+          "当前 Harness: \{model.harness_url}",
+          width=460.0,
+          height=22.0,
+        ).caption().foreground(theme.palette.muted),
+        button(
+          "启动 DSH Web",
+          on_click=StartDshWeb,
+          width=160.0,
+          height=40.0,
         ),
-        text("当前 Harness: \{model.harness_url}").caption().foreground(
-          theme.palette.muted,
-        ),
-        spacer(min_length=120.0, weight=0.0),
+        spacer(min_length=24.0, weight=1.0),
       ],
-      spacing=12.0,
+      spacing=14.0,
       align=@views.CrossAlign::Center,
     ),
     padding=24.0,
