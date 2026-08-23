@@ -6,6 +6,7 @@ pub fn runtime(
   capabilities~ : @webview_host.HostWebViewCapabilities,
   controller~ : @webview_host.WebViewController,
   environment? : @services.AppEnvironment = @services.AppEnvironment::new(),
+  dsh_service? : DshService = DshService::native(),
   url? : String = default_url,
   on_navigation_finished? : (String) -> Unit = _ => (),
 ) -> @moui.Program[Model, Msg] {
@@ -17,6 +18,7 @@ pub fn runtime(
     },
     controller=Some(controller),
     environment~,
+    dsh_service~,
     url~,
     on_navigation_finished~,
   )

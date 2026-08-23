@@ -64,6 +64,9 @@ pub(all) enum Msg {
   FloatingDraggedInViewport(@views.DragGestureEvent, Double, Double)
   StartDshWeb
   StopDshWeb
+  DshCheckResult(@services.ServiceTaskResult[Bool])
+  DshStartResult(@services.ServiceTaskResult[Unit])
+  DshStopResult(@services.ServiceTaskResult[Unit])
 }
 
 ///|

@@ -188,6 +188,39 @@ pub fn update(model : Model, msg : Msg) -> Model {
           status: "dsh web stopped",
         }
       }
+    DshCheckResult(result) =>
+      match result {
+        @services.ServiceTaskResult::Success(running) =>
+          if running {
+            { ..model, dsh_web_status: DshWebStatus::Running, status: "connecting" }
+          } else {
+            { ..model, dsh_web_status: DshWebStatus::Stopped, status: "dsh web stopped" }
+          }
+        @services.ServiceTaskResult::Failure(_) =>
+          { ..model, dsh_web_status: DshWebStatus::Stopped, status: "dsh web stopped" }
+        @services.ServiceTaskResult::Cancelled =>
+          { ..model, dsh_web_status: DshWebStatus::Stopped, status: "dsh web stopped" }
+      }
+    DshStartResult(result) =>
+      match result {
+        @services.ServiceTaskResult::Success(_) =>
+          {
+            ..model,
+            dsh_web_status: DshWebStatus::Running,
+            status: "connecting",
+            url: model.harness_url,
+            active_site: Harness,
+          }
+        @services.ServiceTaskResult::Failure(_) => model
+        @services.ServiceTaskResult::Cancelled => model
+      }
+    DshStopResult(result) =>
+      match result {
+        @services.ServiceTaskResult::Success(_) =>
+          { ..model, dsh_web_status: DshWebStatus::Stopped, status: "dsh web stopped" }
+        @services.ServiceTaskResult::Failure(_) => model
+        @services.ServiceTaskResult::Cancelled => model
+      }
     FloatingSecondaryTap =>
       update({ ..model, floating_collapsed: false }, OpenSettings)
     FloatingDragged(event) => update_floating_drag(model, event, None, None)

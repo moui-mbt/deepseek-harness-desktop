@@ -3,6 +3,7 @@ pub fn program(
   capability~ : WebViewCapability,
   controller? : @webview_host.WebViewController? = None,
   environment? : @services.AppEnvironment = @services.AppEnvironment::new(),
+  dsh_service? : DshService = DshService::mock(initial_running=true),
   url? : String = default_url,
   on_navigation_finished? : (String) -> Unit = _ => (),
 ) -> @moui.Program[Model, Msg] {
@@ -16,6 +17,9 @@ pub fn program(
     init=() => {
       let initial = Model::new(capability~, url~)
       let settings = request_settings_load(services)
+      let dsh_check = dsh_service
+        .check()
+        .effect(map=result => DshCheckResult(result))
       let navigation = match controller {
         Some(controller) =>
           controller
@@ -29,7 +33,7 @@ pub fn program(
           })
         None => @moui.Effect::none()
       }
-      (initial, @moui.Effect::batch([settings, navigation]))
+      (initial, @moui.Effect::batch([settings, dsh_check, navigation]))
     },
     update=(model, msg) => {
       let (next, effect) = update_with_services(model, msg, services)
@@ -78,6 +82,13 @@ pub fn program(
           })
         _ => @moui.Effect::none()
       }
+      let dsh_effect = match msg {
+        StartDshWeb =>
+          dsh_service.start().effect(map=result => DshStartResult(result))
+        StopDshWeb =>
+          dsh_service.stop().effect(map=result => DshStopResult(result))
+        _ => @moui.Effect::none()
+      }
       let menu_effect = if model.dsh_web_status != next.dsh_web_status {
         services
         .menus()
@@ -91,7 +102,7 @@ pub fn program(
           on_navigation_finished(navigation.url)
         _ => ()
       }
-      (next, @moui.Effect::batch([effect, navigation, menu_effect]))
+      (next, @moui.Effect::batch([effect, navigation, dsh_effect, menu_effect]))
     },
     view=(model, view_environment) => {
       view_with_environment(model, view_environment, controller)

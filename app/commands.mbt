@@ -121,12 +121,8 @@ pub fn application_menus(
       ),
     ]),
     @services.ApplicationMenu::new(title="DSH", items=[
-      @services.ApplicationMenuItem::MenuCommand(
-        start_dsh_web_action_command(),
-      ),
-      @services.ApplicationMenuItem::MenuCommand(
-        stop_dsh_web_action_command(),
-      ),
+      @services.ApplicationMenuItem::MenuCommand(start_dsh_web_action_command()),
+      @services.ApplicationMenuItem::MenuCommand(stop_dsh_web_action_command()),
     ]),
   ]
 }
