@@ -44,7 +44,9 @@ fn view_with_viewport(
     model.theme_mode
   }
   let theme = theme_for_mode(selected_mode, system_color_scheme)
-  let content = if model.web_view_available && model.settings_ready {
+  let content = if model.dsh_web_status == DshWebStatus::Stopped {
+    dsh_web_stopped_view(model, theme)
+  } else if model.web_view_available && model.settings_ready {
     match controller {
       Some(controller) =>
         web_view(
@@ -220,6 +222,28 @@ fn unavailable_view(model : Model, theme : @moui.Theme) -> @moui.View[Msg] {
         text("Start a native composition root to open the local DSH Host.")
         .caption()
         .foreground(theme.palette.muted),
+        spacer(min_length=120.0, weight=0.0),
+      ],
+      spacing=12.0,
+      align=@views.CrossAlign::Center,
+    ),
+    padding=24.0,
+  ).background(theme.palette.surface_variant.multiply_alpha(0.45))
+}
+
+///|
+fn dsh_web_stopped_view(model : Model, theme : @moui.Theme) -> @moui.View[Msg] {
+  container(
+    column(
+      [
+        spacer(min_length=120.0, weight=0.0),
+        text("DSH Web 已停止").title(),
+        text("使用菜单栏 DSH → 启动 DSH Web 以重新连接。").foreground(
+          theme.palette.muted,
+        ),
+        text("当前 Harness: \{model.harness_url}").caption().foreground(
+          theme.palette.muted,
+        ),
         spacer(min_length=120.0, weight=0.0),
       ],
       spacing=12.0,

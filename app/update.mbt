@@ -166,6 +166,24 @@ pub fn update(model : Model, msg : Msg) -> Model {
     }
     SwitchSite => model
     ToggleFloating => { ..model, floating_enabled: !model.floating_enabled }
+    StartDshWeb =>
+      if model.dsh_web_status == DshWebStatus::Running {
+        model
+      } else {
+        {
+          ..model,
+          dsh_web_status: DshWebStatus::Running,
+          status: "connecting",
+          url: model.harness_url,
+          active_site: Harness,
+        }
+      }
+    StopDshWeb =>
+      if model.dsh_web_status == DshWebStatus::Stopped {
+        model
+      } else {
+        { ..model, dsh_web_status: DshWebStatus::Stopped, status: "dsh web stopped" }
+      }
     FloatingSecondaryTap =>
       update({ ..model, floating_collapsed: false }, OpenSettings)
     FloatingDragged(event) => update_floating_drag(model, event, None, None)

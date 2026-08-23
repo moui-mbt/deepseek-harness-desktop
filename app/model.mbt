@@ -28,6 +28,7 @@ pub struct Model {
   floating_left : Bool
   floating_collapsed : Bool
   floating_enabled : Bool
+  dsh_web_status : DshWebStatus
 }
 
 ///|
@@ -61,6 +62,8 @@ pub(all) enum Msg {
   // The environment-aware route lets the app clamp a free position to the
   // current window and recognize either edge, including after a resize.
   FloatingDraggedInViewport(@views.DragGestureEvent, Double, Double)
+  StartDshWeb
+  StopDshWeb
 }
 
 ///|
@@ -101,6 +104,7 @@ pub fn Model::new(
     floating_left: false,
     floating_collapsed: false,
     floating_enabled: true,
+    dsh_web_status: DshWebStatus::Running,
   }
 }
 

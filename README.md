@@ -39,6 +39,8 @@ On macOS, the settings dialog is a MoUI modal above the full-window WKWebView. W
 
 The first 32 points of the WebView are also a drag/no-drag strip: blank space moves the native window, while links, buttons, inputs, editable controls, and elements marked `data-moui-no-drag` remain clickable. DSH can add that attribute to any custom interactive control in its top bar.
 
+The menu bar adds a **DSH** menu with **启动 DSH Web** and **关闭 DSH Web**. Starting resumes the Harness surface and navigates to the configured Harness URL; stopping replaces the WebView with a lightweight placeholder that shows the current Harness URL and can be re-started from the same menu. Both actions are available as typed `ProgramCommand`s so they can be triggered from the host menu or programmatically.
+
 ## Theming & Navigation
 
 When switching between Harness (`http://127.0.0.1:3080`) and Chat (`https://chat.deepseek.com/`), the resolved Theme background is applied to the native WebView before navigation starts. This prevents a system-light/Chat-dark switch from exposing the native WebView's default white or black startup surface. On macOS the resolved mode is also applied as the WKWebView's native Aqua/Dark Aqua appearance.

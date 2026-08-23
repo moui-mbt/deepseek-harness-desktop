@@ -34,7 +34,8 @@ pub fn program(
     update=(model, msg) => {
       let (next, effect) = update_with_services(model, msg, services)
       let navigation = match (controller, msg) {
-        (Some(controller), SwitchSite) =>
+        (Some(controller), SwitchSite)
+        | (Some(controller), StartDshWeb) =>
           controller
           .navigate(next.url)
           .effect(map=result => {

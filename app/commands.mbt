@@ -33,6 +33,26 @@ pub fn toggle_floating_action_command() -> @views.ActionCommand {
 }
 
 ///|
+pub fn start_dsh_web_action_command() -> @views.ActionCommand {
+  @views.ActionCommand::new(
+    intent=@views.CommandIntent::Submit,
+    label="启动 DSH Web",
+    group="DSH",
+    description="启动本地 DSH Web 服务并导航至 Harness。",
+  )
+}
+
+///|
+pub fn stop_dsh_web_action_command() -> @views.ActionCommand {
+  @views.ActionCommand::new(
+    intent=@views.CommandIntent::Cancel,
+    label="关闭 DSH Web",
+    group="DSH",
+    description="关闭本地 DSH Web 服务并显示占位。",
+  )
+}
+
+///|
 fn edit_action_command(
   intent : @views.CommandIntent,
   label : String,
@@ -86,6 +106,10 @@ pub fn application_menus() -> Array[@services.ApplicationMenu] {
         toggle_floating_action_command(),
       ),
     ]),
+    @services.ApplicationMenu::new(title="DSH", items=[
+      @services.ApplicationMenuItem::MenuCommand(start_dsh_web_action_command()),
+      @services.ApplicationMenuItem::MenuCommand(stop_dsh_web_action_command()),
+    ]),
   ]
 }
 
@@ -103,6 +127,14 @@ fn program_commands() -> Array[@moui.ProgramCommand[Msg]] {
     @moui.ProgramCommand::new(
       command=toggle_floating_action_command(),
       message=ToggleFloating,
+    ),
+    @moui.ProgramCommand::new(
+      command=start_dsh_web_action_command(),
+      message=StartDshWeb,
+    ),
+    @moui.ProgramCommand::new(
+      command=stop_dsh_web_action_command(),
+      message=StopDshWeb,
     ),
   ]
 }

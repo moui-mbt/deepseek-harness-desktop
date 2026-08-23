@@ -1,4 +1,11 @@
 ///|
+/// DSH Web lifecycle controlled from the native menu bar.
+pub(all) enum DshWebStatus {
+  Stopped
+  Running
+} derive(Eq, Debug)
+
+///|
 /// DSH owns the product UI. This app only supplies native WebView surfaces.
 pub let default_url = "http://127.0.0.1:3080"
 

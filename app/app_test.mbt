@@ -739,6 +739,80 @@ test "settings dialog accepts pointer editing cancel and save" {
 }
 
 ///|
+test "dsh desktop menu bar exposes DSH Web start and stop" {
+  let menus = application_menus()
+  inspect(menus.length(), content="4")
+  let dsh_menu = menus[3]
+  inspect(dsh_menu.title, content="DSH")
+  let commands = dsh_menu.items.filter_map(item => {
+    match item {
+      @services.ApplicationMenuItem::MenuCommand(command) => Some(command)
+      @services.ApplicationMenuItem::MenuSeparator => None
+    }
+  })
+  inspect(commands.length(), content="2")
+  assert_true(commands.any(command => command.label == "启动 DSH Web"))
+  assert_true(commands.any(command => command.label == "关闭 DSH Web"))
+  let runtime = test_runtime(
+    program(capability=WebViewCapability::available()),
+    width=1280.0,
+    height=820.0,
+  )
+  ignore(runtime.draw_frame())
+  assert_true(runtime.dispatch_action_command(start_dsh_web_action_command()))
+  assert_true(runtime.dispatch_action_command(stop_dsh_web_action_command()))
+}
+
+///|
+test "dsh desktop starts and stops DSH Web via menu commands" {
+  let running = Model::new(capability=WebViewCapability::available())
+  assert_true(running.dsh_web_status == DshWebStatus::Running)
+  let stopped = update(running, StopDshWeb)
+  assert_true(stopped.dsh_web_status == DshWebStatus::Stopped)
+  inspect(stopped.status, content="dsh web stopped")
+  // Stopping twice is idempotent
+  let still_stopped = update(stopped, StopDshWeb)
+  assert_true(still_stopped.dsh_web_status == DshWebStatus::Stopped)
+  let restarted = update(stopped, StartDshWeb)
+  assert_true(restarted.dsh_web_status == DshWebStatus::Running)
+  inspect(restarted.status, content="connecting")
+  inspect(restarted.url, content=restarted.harness_url)
+  // Starting twice is idempotent
+  let still_running = update(restarted, StartDshWeb)
+  assert_true(still_running.dsh_web_status == DshWebStatus::Running)
+}
+
+///|
+test "dsh desktop shows stopped placeholder instead of WebView" {
+  let stopped_model = update(
+    Model::new(capability=WebViewCapability::available()),
+    StopDshWeb,
+  )
+  // Direct view check without a runtime controller
+  let _stopped_view = view(stopped_model)
+  ignore(_stopped_view)
+  // The WebView controller is required for platform view emission; when
+  // dsh_web_status is Stopped the view must not emit a web_view placement.
+  // We verify via the update/view path through a runtime.
+  let runtime = test_runtime(
+    program(capability=WebViewCapability::available()),
+    width=1280.0,
+    height=820.0,
+  )
+  ignore(runtime.draw_frame())
+  assert_true(runtime.dispatch_action_command(stop_dsh_web_action_command()))
+  let frame = runtime.draw_frame()
+  inspect(frame.platform_views.length(), content="0")
+  assert_true(runtime.dispatch_action_command(start_dsh_web_action_command()))
+  let restarted_frame = runtime.draw_frame()
+  // After Start, the WebView returns (navigation effect may be pending, but
+  // the view still requests a platform view when settings are ready).
+  // In the test harness the initial navigation is batched, so we expect a
+  // platform view again once the effect delivers.
+  assert_true(restarted_frame.platform_views.length() == 1)
+}
+
+///|
 fn test_semantics_node(
   runtime : @runtime.AppRuntime,
   role~ : @core.SemanticsRole,
