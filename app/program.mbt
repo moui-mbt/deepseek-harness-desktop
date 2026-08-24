@@ -7,6 +7,9 @@ pub fn program(
   dsh_service? : DshService = DshService::mock(initial_running=true),
   url? : String = default_url,
   on_navigation_finished? : (String) -> Unit = _ => (),
+  no_drag_regions? : (Double) -> Array[@webview_host.WebViewNoDragRegion] = _ => {
+    []
+  },
 ) -> @moui.Program[Model, Msg] {
   let controller = match controller {
     Some(value) => Some(value)
@@ -135,7 +138,7 @@ pub fn program(
     },
     view=(model, view_environment) => {
       view_with_environment(
-        model, view_environment, controller, chat_controller,
+        model, view_environment, controller, chat_controller, no_drag_regions,
       )
     },
     subscriptions=model => {

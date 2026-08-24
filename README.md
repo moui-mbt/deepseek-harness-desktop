@@ -47,6 +47,8 @@ On macOS, the settings dialog is a MoUI modal above the full-window WKWebView. W
 
 The first 32 points of the WebView are also a drag/no-drag strip: blank space moves the native window, while links, buttons, inputs, editable controls, and elements marked `data-moui-no-drag` remain clickable. DSH can add that attribute to any custom interactive control in its top bar.
 
+On macOS, the DSH shell explicitly reserves a top-right no-drag rectangle for the conversation header controls. It is supplied directly by the MoonBit WebView placement, so the click area does not depend on a page patch.
+
 The menu bar adds a **DSH** menu with **启动 DSH Web** and **关闭 DSH Web**. Starting creates an owned native process through `moonbitlang/async@0.21.0`, polls the configured Harness endpoint for up to 10 seconds, then navigates only after it is ready. Stopping cancels and reaps that process before replacing the WebView with a lightweight placeholder. Closing the desktop app exits its root async `TaskGroup`, which also cancels and waits for every DSH process it started. A DSH server that was already running when the app opened is detected and can be used, but neither the stop action nor app shutdown terminates it because the app does not own that process. Both actions are available as typed `ProgramCommand`s so they can be triggered from the host menu or programmatically.
 
 ## Theming & Navigation
@@ -55,7 +57,7 @@ Harness and Chat use separate native WebViews. Chat starts loading in the backgr
 
 The floating button (brand blue) is hidden by default. Use **View → Toggle Floating Button** to show it; it toggles between Harness and Chat, can be dragged or docked to either edge (leaving a 16px peek tab), and opens Settings on a secondary tap.
 
-The native composition root installs the versioned `dsh-shell` HostPatch (`v1.0.0`) before the first navigation and on every later configuration revision. Its stylesheet adjusts the expanded sidebar top inset, collapsed rail width, and related grid columns. The macOS traffic lights themselves are not resized.
+The macOS composition root installs the versioned `dsh-shell` HostPatch (`v1.0.0`) before the first navigation and on every later configuration revision. Its stylesheet adjusts the expanded sidebar top inset, collapsed rail width, and related grid columns. The macOS traffic lights themselves are not resized. Windows and Linux use the shared app without this shell patch.
 
 ## Project Structure
 
@@ -72,6 +74,8 @@ The native composition root installs the versioned `dsh-shell` HostPatch (`v1.0.
 │   └── dsh_async/     # Native async DSH process/probe implementation
 ├── docs/             # DSH Desktop implementation and lifecycle notes
 ├── macos_skia/       # macOS composition root (WKWebView + Skia)
+│   ├── dsh_shell_patch.css/js  # Readable macOS WebView resources
+│   └── dsh_shell_patch.mbt     # HostPatch + top no-drag policy
 ├── linux_skia/       # Linux composition root (WebKitGTK + Skia)
 ├── windows_skia/     # Windows composition root (WebView2 + Skia raster)
 ├── moon.mod          # Module manifest (deepseek_harness_desktop)

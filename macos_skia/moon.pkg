@@ -14,6 +14,18 @@ supported_targets = "native"
 pkgtype(kind: "executable")
 
 options(
+  "pre-build": [
+    {
+      "command": ":embed --text --input $input --output $output --name dsh_shell_patch_css",
+      "input": "dsh_shell_patch.css",
+      "output": "dsh_shell_patch_css.mbt",
+    },
+    {
+      "command": ":embed --text --input $input --output $output --name dsh_shell_patch_js",
+      "input": "dsh_shell_patch.js",
+      "output": "dsh_shell_patch_js.mbt",
+    },
+  ],
   link: { "native": { "cc-link-flags": "" } },
   targets: { "main.mbt": [ "native" ] },
 )

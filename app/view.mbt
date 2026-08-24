@@ -16,6 +16,7 @@ pub fn view(model : Model) -> @moui.View[Msg] {
     model.system_color_scheme,
     None,
     None,
+    _ => [],
   )
 }
 
@@ -25,6 +26,7 @@ fn view_with_environment(
   view_environment : @moui.ViewEnvironment,
   controller : @webview_host.WebViewController?,
   chat_controller : @webview_host.WebViewController?,
+  no_drag_regions : (Double) -> Array[@webview_host.WebViewNoDragRegion],
 ) -> @moui.View[Msg] {
   let viewport = view_environment.viewport_size()
   view_with_viewport(
@@ -34,6 +36,7 @@ fn view_with_environment(
     view_environment.environment().system_scheme,
     controller,
     chat_controller,
+    no_drag_regions,
   )
 }
 
@@ -45,6 +48,7 @@ fn view_with_viewport(
   system_color_scheme : @state.ColorScheme,
   controller : @webview_host.WebViewController?,
   chat_controller : @webview_host.WebViewController?,
+  no_drag_regions : (Double) -> Array[@webview_host.WebViewNoDragRegion],
 ) -> @moui.View[Msg] {
   // Preview the selected mode while Settings is open so the native WebView
   // surface and MoUI dialog use the same appearance before Save.
@@ -76,6 +80,7 @@ fn view_with_viewport(
               title=model.title,
               background_color=Some(theme.palette.background),
               color_scheme=Some(theme.scheme),
+              no_drag_regions=no_drag_regions(viewport_width),
               on_event=Some(event => WebViewEvent(event)),
             )
           None => loading_view(theme)
@@ -97,6 +102,7 @@ fn view_with_viewport(
             model.active_site == Harness,
           background_color=Some(theme.palette.background),
           color_scheme=Some(theme.scheme),
+          no_drag_regions=no_drag_regions(viewport_width),
           on_event=if model.dsh_web_status == DshWebStatus::Running &&
             model.active_site == Harness {
             Some(event => WebViewEvent(event))

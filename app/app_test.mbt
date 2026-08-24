@@ -713,11 +713,22 @@ test "dsh desktop keeps Harness and Chat loaded while switching visibility" {
   let host = @webview_host.WebViewHost::new()
   let harness = create_controller(host)
   let chat = create_chat_controller(host)
+  let top_controls = _width => {
+    [
+      @webview_host.WebViewNoDragRegion::new(
+        left=1035.0,
+        top=10.0,
+        right=1128.0,
+        bottom=32.0,
+      ),
+    ]
+  }
   let runtime = test_runtime(
     program(
       capability=WebViewCapability::available(),
       controller=Some(harness),
       chat_controller=Some(chat),
+      no_drag_regions=top_controls,
     ),
     width=1280.0,
     height=820.0,
@@ -728,6 +739,14 @@ test "dsh desktop keeps Harness and Chat loaded while switching visibility" {
   inspect(initial.platform_views[0].property_or("visible", ""), content="true")
   inspect(initial.platform_views[1].id, content="dsh-desktop-chat-surface")
   inspect(initial.platform_views[1].property_or("visible", ""), content="false")
+  inspect(
+    initial.platform_views[0].property_or("no-drag-regions", ""),
+    content="[[1035,10,1128,32]]",
+  )
+  inspect(
+    initial.platform_views[1].property_or("no-drag-regions", ""),
+    content="[]",
+  )
   let initial_commands : Array[@webview_host.HostWebViewQueuedCommand] = []
   ignore(host.drain_commands(command => initial_commands.push(command)))
   assert_true(
