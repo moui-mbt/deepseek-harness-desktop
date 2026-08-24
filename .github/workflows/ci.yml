@@ -158,7 +158,37 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "BUILD_VERSION=${GITHUB_RUN_NUMBER}" >> $GITHUB_ENV
           echo "Building ${{ matrix.package }} $VERSION (${GITHUB_RUN_NUMBER})"
+
+          # Patch webkit 4.1 API for noble (2-arg vs 3-arg) - apply to any cached copy
+          patch_webkit() {
+            for root in "$HOME/.moon" ".mooncakes" "_build"; do
+              if [ -d "$root" ]; then
+                find "$root" -name "webview_host.c" -type f 2>/dev/null | while read -r f; do
+                  if grep -q '"mouiBridge", NULL' "$f"; then
+                    echo "Patching $f"
+                    sed -i 's/"mouiBridge", NULL/"mouiBridge"/g' "$f" || true
+                    # also handle multiline case
+                    perl -i -pe 'BEGIN{undef $/;} s/webkit_user_content_manager_register_script_message_handler\(content_manager,\s*"mouiBridge",\s*NULL\)/webkit_user_content_manager_register_script_message_handler(content_manager, "mouiBridge")/s' "$f" || true
+                  fi
+                done
+              fi
+            done
+          }
+
+          # Try building, patch and retry if webkit error
+          set +e
           moon build ${{ matrix.package }} --target native --release --verbose
+          status=$?
+          set -e
+          if [ $status -ne 0 ]; then
+            echo "First build failed with $status, checking for webkit patch needed..."
+            grep -r "webkit_user_content_manager_register_script_message_handler" _build 2>/dev/null | head -n 5 || true
+            echo "Attempting patch and rebuild..."
+            patch_webkit
+            # Also patch the registry zip cache if needed (for next build)
+            echo "Retrying build..."
+            moon build ${{ matrix.package }} --target native --release --verbose
+          fi
 
       - name: Package macOS
         if: runner.os == 'macOS'

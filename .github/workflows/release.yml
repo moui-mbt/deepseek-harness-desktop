@@ -102,7 +102,27 @@ jobs:
       - name: Build (release)
         shell: bash
         run: |
+          patch_webkit() {
+            for root in "$HOME/.moon" ".mooncakes" "_build"; do
+              if [ -d "$root" ]; then
+                find "$root" -name "webview_host.c" -type f 2>/dev/null | while read -r f; do
+                  if grep -q '"mouiBridge", NULL' "$f"; then
+                    echo "Patching $f"
+                    sed -i 's/"mouiBridge", NULL/"mouiBridge"/g' "$f" || true
+                  fi
+                done
+              fi
+            done
+          }
+          set +e
           moon build ${{ matrix.package }} --target native --release --verbose
+          status=$?
+          set -e
+          if [ $status -ne 0 ]; then
+            echo "First build failed, patching webkit and retrying..."
+            patch_webkit
+            moon build ${{ matrix.package }} --target native --release --verbose
+          fi
 
       - name: Package macOS
         if: matrix.script == 'macos'
