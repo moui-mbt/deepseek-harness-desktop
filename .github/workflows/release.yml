@@ -103,26 +103,41 @@ jobs:
         shell: bash
         run: |
           patch_webkit() {
-            for root in "$HOME/.moon" ".mooncakes" "_build"; do
+            echo "=== patch_webkit: scanning ==="
+            for root in "$HOME/.moon" ".mooncakes" "_build" "."; do
               if [ -d "$root" ]; then
+                echo "Scanning $root"
                 find "$root" -name "webview_host.c" -type f 2>/dev/null | while read -r f; do
+                  echo "Found $f"
                   if grep -q 'mouiBridge' "$f"; then
-                    echo "Patching $f"
+                    echo "Patching $f (before)"
+                    grep -n "webkit_user_content_manager_register_script_message_handler" "$f" | head -n 3 || true
                     perl -0777 -i -pe 's/webkit_user_content_manager_register_script_message_handler\(content_manager,\s*"mouiBridge",\s*NULL\)/webkit_user_content_manager_register_script_message_handler(content_manager, "mouiBridge")/s' "$f" || true
                     sed -i 's/"mouiBridge", NULL/"mouiBridge"/g' "$f" || true
+                    echo "After patch:"
+                    grep -n "webkit_user_content_manager_register_script_message_handler" "$f" | head -n 3 || true
                   fi
                 done
+              else
+                echo "Skipping $root (not found)"
               fi
             done
+            find . -name "webview_host.c" 2>/dev/null | head -n 20 || true
+            find "$HOME" -name "webview_host.c" 2>/dev/null | head -n 20 || true
           }
+          patch_webkit || true
           set +e
           moon build ${{ matrix.package }} --target native --release --verbose
           status=$?
           set -e
           if [ $status -ne 0 ]; then
-            echo "First build failed with $status, patching webkit and retrying..."
-            grep -r "webkit_user_content_manager_register_script_message_handler" _build 2>/dev/null | head -n 5 || true
+            echo "First build failed with $status, checking for webkit patch needed..."
+            grep -r "webkit_user_content_manager_register_script_message_handler" _build 2>/dev/null | head -n 20 || true
+            echo "Attempting patch and rebuild with clean _build..."
             patch_webkit
+            echo "Cleaning _build to force re-extract from patched .mooncakes"
+            rm -rf _build
+            patch_webkit || true
             echo "Retrying build..."
             moon build ${{ matrix.package }} --target native --release --verbose
           fi
