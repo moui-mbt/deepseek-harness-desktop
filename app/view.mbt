@@ -143,7 +143,7 @@ fn view_with_viewport(
     floating_button(model, theme, viewport_width, viewport_height)
   }
   let content_with_status = if has_lifecycle_error {
-    @views.overlay(
+    @views.stack([
       content,
       column(
         [
@@ -164,17 +164,24 @@ fn view_with_viewport(
         ],
         spacing=0.0,
       ),
-    )
+    ])
   } else {
     content
   }
-  let body = @views.overlay(content_with_status, floating)
-  let root = @views.dialog_host(
-    body,
-    dialog=Some(settings_dialog(model, theme)),
-    presented=model.settings_presented,
-    on_backdrop=Some(SettingsBackdropPressed),
-  )
+  let body = @views.stack([content_with_status, floating])
+  let root = @views.overlay_host(body, [
+    @views.PresentationSpec::new(
+      id="settings",
+      kind=@views.PresentationKind::Dialog,
+      content=settings_dialog(model, theme),
+      modality=@views.PresentationModality::Modal,
+      dismiss=@views.PresentationDismissPolicy::new(
+        outside_tap=true,
+        message=Some(SettingsBackdropPressed),
+      ),
+      presented=model.settings_presented,
+    ),
+  ])
   root.theme(theme)
 }
 
