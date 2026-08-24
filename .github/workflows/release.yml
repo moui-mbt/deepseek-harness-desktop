@@ -30,7 +30,7 @@ jobs:
             name: macOS
             package: macos_skia
             script: macos
-          - os: ubuntu-24.04
+          - os: ubuntu-22.04
             name: Linux
             package: linux_skia
             script: linux
@@ -94,26 +94,10 @@ jobs:
         shell: bash
         run: bash scripts/ci-moon-update.sh
 
-      - name: Patch Linux WebKit API (webkit 4.1 on noble)
-        if: runner.os == 'Linux'
+      - name: Setup Windows MSVC NOMINMAX
+        if: runner.os == 'Windows'
         shell: bash
-        run: |
-          set -e
-          FILE=".mooncakes/wzzc-dev/moui_webview/backend/linux/webview_host.c"
-          if [ -f "$FILE" ]; then
-            echo "=== Before patch ==="
-            grep -n "webkit_user_content_manager_register_script_message_handler" "$FILE" || true
-            if grep -q '"mouiBridge", NULL' "$FILE"; then
-              echo "Patching $FILE for noble (2-arg API)"
-              perl -i -pe 'BEGIN{undef $/;} s/webkit_user_content_manager_register_script_message_handler\(content_manager,\s*"mouiBridge",\s*NULL\)/webkit_user_content_manager_register_script_message_handler(content_manager, "mouiBridge")/s' "$FILE" || true
-              sed -i 's/"mouiBridge", NULL/"mouiBridge"/g' "$FILE" || true
-            fi
-            echo "=== After patch ==="
-            grep -n "webkit_user_content_manager_register_script_message_handler" "$FILE" || true
-          else
-            echo "File not found: $FILE"
-            find .mooncakes -name "webview_host.c" -exec grep -l "register_script_message_handler" {} \; || true
-          fi
+        run: echo "CL=/DNOMINMAX /experimental:c11atomics /wd4005" >> $GITHUB_ENV
 
       - name: Build (release)
         shell: bash
