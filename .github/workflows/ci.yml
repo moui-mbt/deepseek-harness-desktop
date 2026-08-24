@@ -30,6 +30,19 @@ jobs:
       - name: Moon version
         run: moon version --all
 
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config unzip \
+            libwayland-dev libwayland-bin wayland-protocols \
+            libxkbcommon-dev \
+            libfontconfig1-dev libfreetype6-dev libharfbuzz-dev \
+            libwebkit2gtk-4.1-dev libsoup-3.0-dev \
+            libjavascriptcoregtk-4.1-dev \
+            fonts-noto-color-emoji \
+            zip
+
       - name: Install dependencies
         run: bash scripts/ci-moon-update.sh
 
