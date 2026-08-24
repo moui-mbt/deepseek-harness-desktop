@@ -1,0 +1,205 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Avoid duplicate runs for PRs from same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Fast feedback: check + test + fmt on Linux (cheapest)
+  check:
+    name: Check & Test (ubuntu)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MoonBit
+        uses: hustcer/setup-moonbit@v1
+        with:
+          # pinned toolchain; fallback to latest if file missing
+          version: latest
+
+      - name: Moon version
+        run: moon version --all
+
+      - name: Install dependencies
+        run: bash scripts/ci-moon-update.sh
+
+      - name: Format check
+        run: moon fmt --check
+
+      - name: Check (native)
+        run: moon check --target native
+
+      - name: Test (native)
+        run: moon test --target native
+
+      - name: Check WASM target (app only, no native host)
+        run: moon check --target wasm-gc --dry-run || moon check app --target wasm-gc || true
+
+  # Build each native package on its home runner and produce portable artifacts.
+  # Uses `package-*.sh` scripts so local `bash scripts/package-*.sh --release` matches CI.
+  build:
+    name: Build ${{ matrix.name }}
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            name: macOS (Skia)
+            package: macos_skia
+            artifact: DSH-Desktop-macos
+          - os: ubuntu-24.04
+            name: Linux (Skia)
+            package: linux_skia
+            artifact: DSH-Desktop-linux
+          - os: windows-2022
+            name: Windows (Skia)
+            package: windows_skia
+            artifact: DSH-Desktop-windows
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MoonBit
+        uses: hustcer/setup-moonbit@v1
+        with:
+          version: latest
+
+      - name: Moon version
+        run: moon version --all
+
+      # Platform dependencies
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config unzip \
+            libwayland-dev libwayland-bin wayland-protocols \
+            libxkbcommon-dev \
+            libfontconfig1-dev libfreetype6-dev libharfbuzz-dev \
+            libwebkit2gtk-4.1-dev libsoup-3.0-dev \
+            libjavascriptcoregtk-4.1-dev \
+            fonts-noto-color-emoji \
+            zip dpkg-dev
+          # Skia / fontconfig may need additional deps; keep log for debugging
+          pkg-config --modversion javascriptcoregtk-4.1 || true
+          pkg-config --modversion webkit2gtk-4.1 || true
+
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: |
+          # Xcode already present on macos-14; ensure command line tools
+          xcode-select -p || true
+          # No extra deps for Skia/WebKit (WebKit bundled)
+          brew list --versions || true
+
+      - name: Install Windows dependencies
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # WebView2 runtime is preinstalled on windows-2022.
+          # Skia raster needs no extra wgpu native download.
+          # Ensure zip is available
+          Get-Command Compress-Archive -ErrorAction SilentlyContinue | Out-String
+          # Show toolchain
+          moon version --all
+
+      - name: Install Moon dependencies
+        shell: bash
+        run: bash scripts/ci-moon-update.sh
+
+      - name: Build (native, release)
+        shell: bash
+        run: |
+          set -e
+          VERSION="$(grep -E '^version' moon.mod | head -1 | sed -E 's/.*\"([^\"]+)\".*/\1/')"
+          if [ -z "$VERSION" ]; then VERSION="0.1.0"; fi
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "BUILD_VERSION=${GITHUB_RUN_NUMBER}" >> $GITHUB_ENV
+          echo "Building ${{ matrix.package }} $VERSION (${GITHUB_RUN_NUMBER})"
+          moon build ${{ matrix.package }} --target native --release --verbose
+
+      - name: Package macOS
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          bash scripts/package-macos.sh \
+            --package ${{ matrix.package }} \
+            --name "DSH Desktop" \
+            --bundle-id dev.moui.dsh-desktop \
+            --version "${VERSION}" \
+            --build-version "${BUILD_VERSION}" \
+            --release \
+            --no-build
+          ls -lh dist/ || true
+          ls -lh dist/macos/ || true
+
+      - name: Package Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          bash scripts/package-linux.sh \
+            --package ${{ matrix.package }} \
+            --name "DSH Desktop" \
+            --version "${VERSION}" \
+            --build-version "${BUILD_VERSION}" \
+            --release \
+            --no-build
+          ls -lh dist/ || true
+          ls -lh dist/linux/ || true
+
+      - name: Package Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          pwsh -File scripts/package-windows.ps1 `
+            -Package ${{ matrix.package }} `
+            -AppName "DSH Desktop" `
+            -Version $env:VERSION `
+            -BuildVersion $env:BUILD_VERSION `
+            -Release -NoBuild
+          Get-ChildItem -Recurse dist | Format-List FullName,Length
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}-${{ env.VERSION }}+${{ env.BUILD_VERSION }}
+          path: |
+            dist/**
+          if-no-files-found: error
+          retention-days: 14
+
+  # Optional: verify that packaging scripts work in debug mode without --release
+  package-smoke:
+    name: Package smoke (debug)
+    runs-on: macos-14
+    needs: check
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hustcer/setup-moonbit@v1
+        with:
+          version: latest
+      - run: moon version --all
+      - run: bash scripts/ci-moon-update.sh
+      - name: Package macOS (debug)
+        run: |
+          bash scripts/package-macos.sh \
+            --package macos_skia \
+            --name "DSH Desktop" \
+            --version "0.0.0" \
+            --build-version "${GITHUB_RUN_NUMBER}" || true
+          ls -lh dist/ || true

@@ -1,5 +1,8 @@
 # DeepSeek Harness Desktop
 
+[![CI](https://github.com/moui-mbt/deepseek-harness-desktop/actions/workflows/ci.yml/badge.svg)](https://github.com/moui-mbt/deepseek-harness-desktop/actions/workflows/ci.yml)
+[![Release](https://github.com/moui-mbt/deepseek-harness-desktop/actions/workflows/release.yml/badge.svg)](https://github.com/moui-mbt/deepseek-harness-desktop/actions/workflows/release.yml)
+
 Standalone native [MoUI](https://github.com/wzzc-dev/MoUI) desktop shell for [DeepSeek Harness](https://github.com/deepseek-ai). Extracted from `examples/deepseek_harness_desktop` in the MoUI monorepo.
 
 DSH owns the product UI and state; this app embeds the local Harness and DeepSeek Chat surfaces in controlled `moui_webview` platform views and reports a clear fallback when the native WebView is unavailable.
@@ -83,6 +86,39 @@ moon test app/dsh_async --target native
 moon check macos_skia --target native
 moon check linux_skia --target native
 moon check windows_skia --target native
+```
+
+## CI & Packaging
+
+GitHub Actions 自动构建三平台原生包并在打标签时发布 Release：
+
+- **CI** (`.github/workflows/ci.yml`)：PR 与 `main` 推送触发
+  - `check` (ubuntu)：`moon fmt --check` / `moon check --target native` / `moon test --target native`
+  - `build` 矩阵：`macos-14` → `macos_skia` / `ubuntu-24.04` → `linux_skia` / `windows-2022` → `windows_skia`
+    - 安装平台依赖（Linux: `libwebkit2gtk-4.1-dev` + `libsoup-3.0-dev` + Wayland/Skia；macOS: Xcode；Windows: WebView2）
+    - `moon build <package> --target native --release`
+    - 调用 `scripts/package-*.sh` 生成可分发产物并 `upload-artifact`
+- **Release** (`.github/workflows/release.yml`)：`git tag v*` 或手工 `workflow_dispatch`
+  - 同矩阵构建 `--release`，产物重命名为 `DSH-Desktop-<version>-<platform>.*`
+  - 自动生成 `SHA256SUMS.txt` 并通过 `softprops/action-gh-release` 发布
+
+本地复刻 CI 打包：
+
+```sh
+# macOS
+bash scripts/package-macos.sh --package macos_skia --version 0.1.0 --release
+# 会产生 dist/macos/DSH Desktop.app + dist/DSH-Desktop-0.1.0-macOS.zip (+ .dmg 需 hdiutil)
+
+# Linux
+bash scripts/package-linux.sh --package linux_skia --version 0.1.0 --release
+# 产生 dist/DSH-Desktop-0.1.0-linux-x64.tar.gz (+ .deb 需 dpkg-deb)
+
+# Windows (PowerShell)
+pwsh scripts/package-windows.ps1 -Package windows_skia -Version 0.1.0 -Release
+# 产生 dist/DSH-Desktop-0.1.0-windows-x64.zip (+ Inno Setup 安装包需 iscc)
+
+# 快速验证（不重新编译，直接打包已有 _build 产物）
+bash scripts/package-macos.sh --no-build --version 0.1.0 --build-version 99
 ```
 
 ## Origin

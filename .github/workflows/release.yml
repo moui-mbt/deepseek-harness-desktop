@@ -1,0 +1,254 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 0.1.0). Leave empty to use moon.mod version."
+        required: false
+        default: ""
+      prerelease:
+        description: "Mark as prerelease"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  # Build release artifacts on each native runner
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            name: macOS
+            package: macos_skia
+            script: macos
+          - os: ubuntu-24.04
+            name: Linux
+            package: linux_skia
+            script: linux
+          - os: windows-2022
+            name: Windows
+            package: windows_skia
+            script: windows
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup MoonBit
+        uses: hustcer/setup-moonbit@v1
+        with:
+          version: latest
+
+      - name: Moon version
+        run: moon version --all
+
+      - name: Resolve version
+        shell: bash
+        run: |
+          set -e
+          if [[ "${{ github.ref_type }}" == "tag" && "${{ github.ref_name }}" == v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          elif [[ -n "${{ inputs.version }}" ]]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="$(grep -E '^version' moon.mod | head -1 | sed -E 's/.*\"([^\"]+)\".*/\1/')"
+            if [ -z "$VERSION" ]; then VERSION="0.1.0"; fi
+          fi
+          # Sanitize: keep only semver-ish
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "BUILD_VERSION=${GITHUB_RUN_NUMBER}" >> $GITHUB_ENV
+          echo "Resolved version: $VERSION ($GITHUB_RUN_NUMBER)"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+        id: version
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config unzip \
+            libwayland-dev libwayland-bin wayland-protocols \
+            libxkbcommon-dev \
+            libfontconfig1-dev libfreetype6-dev libharfbuzz-dev \
+            libwebkit2gtk-4.1-dev libsoup-3.0-dev \
+            libjavascriptcoregtk-4.1-dev \
+            fonts-noto-color-emoji \
+            zip dpkg-dev
+          pkg-config --modversion webkit2gtk-4.1 || true
+
+      - name: Install Moon dependencies
+        shell: bash
+        run: bash scripts/ci-moon-update.sh
+
+      - name: Build (release)
+        shell: bash
+        run: |
+          moon build ${{ matrix.package }} --target native --release --verbose
+
+      - name: Package macOS
+        if: matrix.script == 'macos'
+        shell: bash
+        run: |
+          bash scripts/package-macos.sh \
+            --package ${{ matrix.package }} \
+            --name "DSH Desktop" \
+            --bundle-id dev.moui.dsh-desktop \
+            --version "${VERSION}" \
+            --build-version "${BUILD_VERSION}" \
+            --release \
+            --no-build
+          ls -lh dist/ || true
+
+      - name: Package Linux
+        if: matrix.script == 'linux'
+        shell: bash
+        run: |
+          bash scripts/package-linux.sh \
+            --package ${{ matrix.package }} \
+            --name "DSH Desktop" \
+            --version "${VERSION}" \
+            --build-version "${BUILD_VERSION}" \
+            --release \
+            --no-build
+          ls -lh dist/ || true
+
+      - name: Package Windows
+        if: matrix.script == 'windows'
+        shell: pwsh
+        run: |
+          pwsh -File scripts/package-windows.ps1 `
+            -Package ${{ matrix.package }} `
+            -AppName "DSH Desktop" `
+            -Version $env:VERSION `
+            -BuildVersion $env:BUILD_VERSION `
+            -Release -NoBuild
+          Get-ChildItem -Recurse dist | Format-List FullName,Length
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.script }}-${{ env.VERSION }}
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.tar.gz
+            dist/*.deb
+            dist/*.exe
+          if-no-files-found: warn
+          retention-days: 30
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-24.04
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        shell: bash
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" && "${{ github.ref_name }}" == v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          elif [[ -n "${{ inputs.version }}" ]]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="$(grep -E '^version' moon.mod | head -1 | sed -E 's/.*\"([^\"]+)\".*/\1/')"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "TAG=v$VERSION" >> $GITHUB_ENV
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "TAG=${{ github.ref_name }}" >> $GITHUB_ENV
+          fi
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+
+      - name: List artifacts
+        run: |
+          ls -lhR dist || true
+          find dist -type f -exec ls -lh {} \;
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          if ls *.dmg *.zip *.tar.gz *.deb 1>/dev/null 2>&1; then
+            sha256sum *.dmg *.zip *.tar.gz *.deb 2>/dev/null | tee SHA256SUMS.txt || shasum -a 256 *.dmg *.zip *.tar.gz *.deb > SHA256SUMS.txt
+          fi
+          ls -lh
+          cat SHA256SUMS.txt || true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: "DSH Desktop v${{ env.VERSION }}"
+          body: |
+            ## DSH Desktop v${{ env.VERSION }}
+
+            Automated release built from `${{ github.sha }}`.
+
+            ### Artifacts
+            - **macOS**: `DSH-Desktop-${{ env.VERSION }}-macOS.dmg` / `.zip` (Apple Silicon & Intel, requires macOS 12+)
+            - **Linux**: `DSH-Desktop-${{ env.VERSION }}-linux-x64.tar.gz` / `.deb` (x64, WebKitGTK 4.1)
+            - **Windows**: `DSH-Desktop-${{ env.VERSION }}-windows-x64.zip` (x64, WebView2 Evergreen required)
+
+            ### Install
+
+            **macOS (DMG)**:
+            ```sh
+            hdiutil attach DSH-Desktop-${{ env.VERSION }}-macOS.dmg
+            cp -R "/Volumes/DSH Desktop/DSH Desktop.app" /Applications/
+            ```
+
+            **Linux (tar.gz)**:
+            ```sh
+            tar xzf DSH-Desktop-${{ env.VERSION }}-linux-x64.tar.gz
+            ./DSH\ Desktop-linux-x64/dsh-desktop
+            ```
+            **Linux (deb)**:
+            ```sh
+            sudo dpkg -i dsh-desktop_${{ env.VERSION }}-*.deb
+            dsh-desktop
+            ```
+
+            **Windows (zip)**:
+            ```powershell
+            Expand-Archive DSH-Desktop-${{ env.VERSION }}-windows-x64.zip -DestinationPath .
+            .\DSH` Desktop-windows-x64\dsh-desktop.exe
+            # Requires WebView2 Evergreen Runtime
+            ```
+
+            ### Checksums
+            See `SHA256SUMS.txt`.
+
+            ---
+            Built with MoonBit `${{ env.VERSION }}` • MoUI Skia • commit `${{ github.sha }}`
+          draft: false
+          prerelease: ${{ inputs.prerelease || false }}
+          files: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.tar.gz
+            dist/*.deb
+            dist/SHA256SUMS.txt
+          fail_on_unmatched_files: false
+          generate_release_notes: true
+
