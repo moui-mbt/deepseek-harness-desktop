@@ -8,6 +8,8 @@ The retained app lives in `app/`; the macOS, Windows, and Linux entrypoints only
 
 Implementation notes live in [docs/](docs/README.md).
 
+![screenshot](screenshot.png)
+
 ## Prerequisites
 
 - [MoonBit toolchain](https://www.moonbitlang.com/download/) (`moon` >= 0.1.8)
