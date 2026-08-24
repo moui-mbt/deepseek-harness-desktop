@@ -106,8 +106,9 @@ jobs:
             for root in "$HOME/.moon" ".mooncakes" "_build"; do
               if [ -d "$root" ]; then
                 find "$root" -name "webview_host.c" -type f 2>/dev/null | while read -r f; do
-                  if grep -q '"mouiBridge", NULL' "$f"; then
+                  if grep -q 'mouiBridge' "$f"; then
                     echo "Patching $f"
+                    perl -0777 -i -pe 's/webkit_user_content_manager_register_script_message_handler\(content_manager,\s*"mouiBridge",\s*NULL\)/webkit_user_content_manager_register_script_message_handler(content_manager, "mouiBridge")/s' "$f" || true
                     sed -i 's/"mouiBridge", NULL/"mouiBridge"/g' "$f" || true
                   fi
                 done
@@ -119,8 +120,10 @@ jobs:
           status=$?
           set -e
           if [ $status -ne 0 ]; then
-            echo "First build failed, patching webkit and retrying..."
+            echo "First build failed with $status, patching webkit and retrying..."
+            grep -r "webkit_user_content_manager_register_script_message_handler" _build 2>/dev/null | head -n 5 || true
             patch_webkit
+            echo "Retrying build..."
             moon build ${{ matrix.package }} --target native --release --verbose
           fi
 

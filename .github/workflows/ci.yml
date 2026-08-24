@@ -164,11 +164,13 @@ jobs:
             for root in "$HOME/.moon" ".mooncakes" "_build"; do
               if [ -d "$root" ]; then
                 find "$root" -name "webview_host.c" -type f 2>/dev/null | while read -r f; do
-                  if grep -q '"mouiBridge", NULL' "$f"; then
+                  if grep -q 'mouiBridge' "$f"; then
                     echo "Patching $f"
+                    # Remove the trailing , NULL argument (handles multiline)
+                    perl -0777 -i -pe 's/webkit_user_content_manager_register_script_message_handler\(content_manager,\s*"mouiBridge",\s*NULL\)/webkit_user_content_manager_register_script_message_handler(content_manager, "mouiBridge")/s' "$f" || true
+                    # Fallback for any remaining single-line case
                     sed -i 's/"mouiBridge", NULL/"mouiBridge"/g' "$f" || true
-                    # also handle multiline case
-                    perl -i -pe 'BEGIN{undef $/;} s/webkit_user_content_manager_register_script_message_handler\(content_manager,\s*"mouiBridge",\s*NULL\)/webkit_user_content_manager_register_script_message_handler(content_manager, "mouiBridge")/s' "$f" || true
+                    grep -n "webkit_user_content_manager_register_script_message_handler" "$f" | head -n 2 || true
                   fi
                 done
               fi
