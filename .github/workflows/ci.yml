@@ -117,7 +117,7 @@ jobs:
             libwebkit2gtk-4.1-dev libsoup-3.0-dev \
             libjavascriptcoregtk-4.1-dev \
             fonts-noto-color-emoji \
-            zip dpkg-dev gobjc
+            zip dpkg-dev gobjc libvulkan-dev
           # Skia / fontconfig may need additional deps; keep log for debugging
           pkg-config --modversion javascriptcoregtk-4.1 || true
           pkg-config --modversion webkit2gtk-4.1 || true
