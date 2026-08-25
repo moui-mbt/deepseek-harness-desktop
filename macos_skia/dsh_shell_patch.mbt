@@ -21,7 +21,12 @@ fn dsh_shell_patch() -> @webview_host.HostPatchBundle {
 fn dsh_top_no_drag_regions(
   viewport_width : Double,
 ) -> Array[@webview_host.WebViewNoDragRegion] {
-  let right = viewport_width.max(260.0)
+  // Bucket the viewport width to 16px steps during live resize. Each distinct
+  // string forces an `Exact` platform declaration recompute + FFI + WKWebView
+  // hit-test rect update. Quantizing reduces that work ~16× while keeping the
+  // no-drag strip visually aligned to the window controls.
+  let quantized = (viewport_width / 16.0).floor() * 16.0
+  let right = quantized.max(260.0)
   [
     @webview_host.WebViewNoDragRegion::new(
       left=right - 180.0,
