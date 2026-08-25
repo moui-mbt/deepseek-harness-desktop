@@ -24,16 +24,29 @@ pub fn[X] service(
         error_code="dsh-check-failed",
         () => {
           match process_ref.val {
-            Some(process) if !dsh_process_running(process) => {
-              process_ref.val = None
-              return @services.ServiceTaskResult::Failure(
-                @services.ServiceError::new(
-                  code="dsh-exited-before-ready",
-                  message="DSH process exited before the Harness endpoint became ready",
-                ),
-              )
+            Some(process) => {
+              let exit = process.try_wait() catch { _ => Some(-1) }
+              match exit {
+                Some(code) => {
+                  process_ref.val = None
+                  let message = if code == 127 {
+                    "DSH process exited before the Harness endpoint became ready (exit 127: env: node: No such file or directory). Node.js not found in PATH for GUI launch (Finder). Fix: sudo ln -s /opt/homebrew/bin/node /usr/local/bin/node, or launchctl setenv PATH \"/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin\" then restart, or ensure Node is installed via Homebrew."
+                  } else {
+                    "DSH process exited before the Harness endpoint became ready (exit \{code})"
+                  }
+                  let err_code = if code == 127 {
+                    "dsh-node-missing"
+                  } else {
+                    "dsh-exited-before-ready"
+                  }
+                  return @services.ServiceTaskResult::Failure(
+                    @services.ServiceError::new(code=err_code, message~),
+                  )
+                }
+                None => ()
+              }
             }
-            _ => ()
+            None => ()
           }
           @services.ServiceTaskResult::Success(dsh_probe_harness(harness_url))
         },
@@ -78,16 +91,34 @@ pub fn[X] service(
                   endpoint.host,
                   "--port",
                   endpoint.port.to_string(),
+                  "--no-open",
                 ]
               } else {
                 configured_args
               }
               try {
                 let command = dsh_resolve_command(dsh_cmd)
+                let augmented = dsh_augmented_path()
+                let extra_env = { "PATH": augmented }
+                let (spawn_cmd, spawn_args) = if dsh_requires_node(command) {
+                  match dsh_find_executable("node") {
+                    Some(node) => {
+                      let node_args : Array[String] = [command]
+                      for arg in args {
+                        node_args.push(arg)
+                      }
+                      (node, node_args)
+                    }
+                    None => (command, args)
+                  }
+                } else {
+                  (command, args)
+                }
                 let process = @process.spawn(
                   group,
-                  command,
-                  args,
+                  spawn_cmd,
+                  spawn_args,
+                  extra_env~,
                   no_console_window=true,
                   cancel_handler=@process.graceful_cancel(timeout=2000),
                   no_wait=true,
@@ -171,6 +202,18 @@ async fn dsh_resolve_command(command : String) -> String {
   if command.contains("/") {
     return command
   }
+  for directory in dsh_candidate_directories() {
+    let candidate = directory + "/" + command
+    if (@fs.can_execute(candidate) catch { _ => false }) {
+      return candidate
+    }
+  }
+  command
+}
+
+///|
+#cfg(not(platform="windows"))
+fn dsh_candidate_directories() -> Array[String] {
   let directories : Array[String] = []
   match @env.get_env_var("PATH") {
     Some(path) =>
@@ -187,20 +230,100 @@ async fn dsh_resolve_command(command : String) -> String {
       directories.push(home + "/.local/share/pnpm")
       directories.push(home + "/.bun/bin")
       directories.push(home + "/.npm-global/bin")
+      directories.push(home + "/.volta/bin")
+      directories.push(home + "/.asdf/shims")
+      // nvm current is a symlink to the active version
+      directories.push(home + "/.nvm/current/bin")
+      directories.push(home + "/.fnm/current/bin")
     }
     _ => ()
   }
   directories.push("/opt/homebrew/bin")
+  directories.push("/opt/homebrew/sbin")
   directories.push("/usr/local/bin")
+  directories.push("/usr/local/sbin")
   directories.push("/usr/bin")
   directories.push("/bin")
-  for directory in directories {
-    let candidate = directory + "/" + command
-    if (@fs.can_execute(candidate) catch { _ => false }) {
-      return candidate
+  // Dedup preserving order
+  let seen : Map[String, Bool] = Map([])
+  let uniq : Array[String] = []
+  for dir in directories {
+    if !seen.contains(dir) {
+      seen[dir] = true
+      uniq.push(dir)
     }
   }
-  command
+  uniq
+}
+
+///|
+#cfg(not(platform="windows"))
+fn dsh_augmented_path() -> String {
+  let dirs = dsh_candidate_directories()
+  let mut result = ""
+  for i, dir in dirs {
+    if i > 0 {
+      result += ":"
+    }
+    result += dir
+  }
+  result
+}
+
+///|
+#cfg(not(platform="windows"))
+async fn dsh_find_executable(name : String) -> String? {
+  if name.contains("/") {
+    if (@fs.can_execute(name) catch { _ => false }) {
+      return Some(name)
+    }
+    return None
+  }
+  for directory in dsh_candidate_directories() {
+    let candidate = directory + "/" + name
+    if (@fs.can_execute(candidate) catch { _ => false }) {
+      return Some(candidate)
+    }
+  }
+  None
+}
+
+///|
+#cfg(not(platform="windows"))
+async fn dsh_requires_node(path : String) -> Bool {
+  // Fast heuristic: .js extension is always node
+  if path.has_suffix(".js") {
+    return true
+  }
+  try {
+    let data = @fs.read_file(path)
+    let text = data.text()
+    let head = if text.length() > 512 { text[0:512] } else { text }
+    head.has_prefix("#!") && head.contains("node")
+  } catch {
+    _ => false
+  }
+}
+
+///|
+#cfg(platform="windows")
+fn dsh_augmented_path() -> String {
+  match @env.get_env_var("PATH") {
+    Some(v) => v
+    None => ""
+  }
+}
+
+///|
+#cfg(platform="windows")
+async fn dsh_find_executable(name : String) -> String? {
+  Some(name)
+}
+
+///|
+#cfg(platform="windows")
+async fn dsh_requires_node(path : String) -> Bool {
+  false
 }
 
 ///|
