@@ -30,7 +30,7 @@ jobs:
             name: macOS
             package: macos_skia
             script: macos
-          - os: ubuntu-22.04
+          - os: ubuntu-24.04
             name: Linux
             package: linux_skia
             script: linux
@@ -102,12 +102,11 @@ jobs:
       - name: Build (release)
         shell: bash
         run: |
+          # Noble provides vulkan 1.3.275 < Skia 1.3.280; disable Ganesh Vulkan to use raster (CPU) path.
+          # Remove this export when LunarG 1.3.280+ is available or Skia no longer requires it.
           if [ "${{ matrix.package }}" = "linux_skia" ]; then
-            echo "Linux Skia: check-only on jammy (vulkan headers mismatch)"
-            moon check ${{ matrix.package }} --target native --verbose
-            mkdir -p dist
-            echo "linux_skia check passed for ${{ matrix.package }}" > dist/linux_skia_check.txt
-            exit 0
+            export MOUI_SKIA_ENABLE_GPU_VULKAN=0
+            echo "Disabled MOUI_SKIA_ENABLE_GPU_VULKAN for linux_skia (noble vulkan 1.3.275 < 1.3.280)"
           fi
           patch_webkit() {
             echo "=== patch_webkit: scanning ==="
@@ -167,20 +166,15 @@ jobs:
         if: matrix.script == 'linux'
         shell: bash
         run: |
-          if [ -f "_build/native/release/build/linux_skia/linux_skia.exe" ] || [ -f "_build/native/debug/build/linux_skia/linux_skia.exe" ]; then
-            bash scripts/package-linux.sh \
-              --package ${{ matrix.package }} \
-              --name "DSH Desktop" \
-              --version "${VERSION}" \
-              --build-version "${BUILD_VERSION}" \
-              --release \
-              --no-build
-          else
-            echo "Linux exe not built (check-only), creating placeholder"
-            mkdir -p dist/linux
-            echo "linux_skia check passed for $VERSION ($BUILD_VERSION)" > dist/linux/README.txt
-          fi
+          bash scripts/package-linux.sh \
+            --package ${{ matrix.package }} \
+            --name "DSH Desktop" \
+            --version "${VERSION}" \
+            --build-version "${BUILD_VERSION}" \
+            --release \
+            --no-build
           ls -lh dist/ || true
+          ls -lh dist/*.tar.gz dist/*.deb 2>&1 | head -n 20 || true
 
       - name: Package Windows
         if: matrix.script == 'windows'
@@ -204,7 +198,7 @@ jobs:
             dist/*.tar.gz
             dist/*.deb
             dist/*.exe
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 30
 
   publish:
@@ -274,6 +268,8 @@ jobs:
             ```sh
             hdiutil attach DSH-Desktop-${{ env.VERSION }}-macOS.dmg
             cp -R "/Volumes/DSH Desktop/DSH Desktop.app" /Applications/
+            # 未公证，需移除 quarantine 后才能启动
+            sudo xattr -dr com.apple.quarantine "/Applications/DSH Desktop.app"
             ```
 
             **Linux (tar.gz)**:

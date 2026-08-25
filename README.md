@@ -37,6 +37,16 @@ moon run linux_skia --target native
 
 The default surface is `http://127.0.0.1:3080`, matching a local DSH host. On launch the app checks that endpoint. If it is not running, use **DSH → 启动 DSH Web**; the native host resolves the installed `dsh` executable, launches `dsh web` for the configured local host and port, and waits for the TCP endpoint before navigating. The app does not duplicate DSH navigation, sessions, profiles, settings, or terminal UI.
 
+### macOS 首次安装
+
+Release 产物未经 Apple 公证，首次打开会被 Gatekeeper 拦截（"已损坏，无法打开" 或 "无法验证开发者"）。安装后需移除 quarantine 属性：
+
+```sh
+sudo xattr -dr com.apple.quarantine "/Applications/DSH Desktop.app"
+```
+
+之后再启动即可正常运行。
+
 All three composition roots use the Skia provider route. `MOUI_SKIA_RENDERER` selects `auto` (the default), `skia-gpu`, or `skia-raster`; auto prefers the native GPU surface and falls back to Skia raster. When native WebView is unavailable, the app shows its capability fallback instead of embedding a substitute surface.
 
 ## Configuration
