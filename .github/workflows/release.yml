@@ -26,7 +26,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14
+          - os: macos-26
             name: macOS
             package: macos_skia
             script: macos
@@ -46,10 +46,23 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Read toolchain version
+        id: toolchain
+        shell: bash
+        run: |
+          if [ -f .moonbit-toolchain ]; then
+            MOONC=$(python3 -c "import json; print(json.load(open('.moonbit-toolchain'))['moonc'])" 2>/dev/null || grep -o '"moonc"[[:space:]]*:[[:space:]]*"[^"]*"' .moonbit-toolchain | sed -E 's/.*\"([^\"]+)\".*/\1/')
+            echo "moonc=$MOONC" >> $GITHUB_OUTPUT
+            echo "Pinned to $MOONC from .moonbit-toolchain"
+          else
+            echo "moonc=latest" >> $GITHUB_OUTPUT
+            echo "No toolchain file, using latest"
+          fi
+
       - name: Setup MoonBit
         uses: hustcer/setup-moonbit@v1
         with:
-          version: latest
+          version: ${{ steps.toolchain.outputs.moonc }}
 
       - name: Moon version
         run: moon version --all

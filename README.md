@@ -108,8 +108,9 @@ GitHub Actions 自动构建三平台原生包并在打标签时发布 Release：
 
 - **CI** (`.github/workflows/ci.yml`)：PR 与 `main` 推送触发
   - `check` (ubuntu)：`moon fmt --check` / `moon check --target native` / `moon test --target native`
-  - `build` 矩阵：`macos-14` → `macos_skia` / `ubuntu-24.04` → `linux_skia` / `windows-2022` → `windows_skia`
-    - 安装平台依赖（Linux: `libwebkit2gtk-4.1-dev` + `libsoup-3.0-dev` + Wayland/Skia；macOS: Xcode；Windows: WebView2）
+  - `build` 矩阵：`macos-26` → `macos_skia` / `ubuntu-24.04` → `linux_skia` / `windows-2022` → `windows_skia`
+    - 读取 `.moonbit-toolchain` 固定 MoonBit 版本（`moonc 0.10.10`），无文件时回退 `latest`
+    - 安装平台依赖（Linux: `libwebkit2gtk-4.1-dev` + `libsoup-3.0-dev` + Wayland/Skia；macOS: Xcode 26 / SDK 26；Windows: WebView2）
     - `moon build <package> --target native --release`
     - 调用 `scripts/package-*.sh` 生成可分发产物并 `upload-artifact`
 - **Release** (`.github/workflows/release.yml`)：`git tag v*` 或手工 `workflow_dispatch`

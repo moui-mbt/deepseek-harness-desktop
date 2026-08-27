@@ -21,11 +21,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Read toolchain version
+        id: toolchain
+        shell: bash
+        run: |
+          if [ -f .moonbit-toolchain ]; then
+            MOONC=$(python3 -c "import json; print(json.load(open('.moonbit-toolchain'))['moonc'])" 2>/dev/null || grep -o '"moonc"[[:space:]]*:[[:space:]]*"[^"]*"' .moonbit-toolchain | sed -E 's/.*\"([^\"]+)\".*/\1/')
+            echo "moonc=$MOONC" >> $GITHUB_OUTPUT
+            echo "Pinned to $MOONC from .moonbit-toolchain"
+          else
+            echo "moonc=latest" >> $GITHUB_OUTPUT
+            echo "No toolchain file, using latest"
+          fi
+
       - name: Setup MoonBit
         uses: hustcer/setup-moonbit@v1
         with:
-          # pinned toolchain; fallback to latest if file missing
-          version: latest
+          version: ${{ steps.toolchain.outputs.moonc }}
 
       - name: Moon version
         run: moon version --all
@@ -74,7 +86,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14
+          - os: macos-26
             name: macOS (Skia)
             package: macos_skia
             artifact: DSH-Desktop-macos
@@ -92,10 +104,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Read toolchain version
+        id: toolchain
+        shell: bash
+        run: |
+          if [ -f .moonbit-toolchain ]; then
+            MOONC=$(python3 -c "import json; print(json.load(open('.moonbit-toolchain'))['moonc'])" 2>/dev/null || grep -o '"moonc"[[:space:]]*:[[:space:]]*"[^"]*"' .moonbit-toolchain | sed -E 's/.*\"([^\"]+)\".*/\1/')
+            echo "moonc=$MOONC" >> $GITHUB_OUTPUT
+            echo "Pinned to $MOONC from .moonbit-toolchain"
+          else
+            echo "moonc=latest" >> $GITHUB_OUTPUT
+            echo "No toolchain file, using latest"
+          fi
+
       - name: Setup MoonBit
         uses: hustcer/setup-moonbit@v1
         with:
-          version: latest
+          version: ${{ steps.toolchain.outputs.moonc }}
 
       - name: Moon version
         run: moon version --all
@@ -124,7 +149,7 @@ jobs:
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
         run: |
-          # Xcode already present on macos-14; ensure command line tools
+          # Xcode already present on macos-26; ensure command line tools
           xcode-select -p || true
           # No extra deps for Skia/WebKit (WebKit bundled)
           brew list --versions || true
@@ -264,14 +289,26 @@ jobs:
   # Optional: verify that packaging scripts work in debug mode without --release
   package-smoke:
     name: Package smoke (debug)
-    runs-on: macos-14
+    runs-on: macos-26
     needs: check
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
+      - name: Read toolchain version
+        id: toolchain
+        shell: bash
+        run: |
+          if [ -f .moonbit-toolchain ]; then
+            MOONC=$(python3 -c "import json; print(json.load(open('.moonbit-toolchain'))['moonc'])" 2>/dev/null || grep -o '"moonc"[[:space:]]*:[[:space:]]*"[^"]*"' .moonbit-toolchain | sed -E 's/.*\"([^\"]+)\".*/\1/')
+            echo "moonc=$MOONC" >> $GITHUB_OUTPUT
+            echo "Pinned to $MOONC from .moonbit-toolchain"
+          else
+            echo "moonc=latest" >> $GITHUB_OUTPUT
+            echo "No toolchain file, using latest"
+          fi
       - uses: hustcer/setup-moonbit@v1
         with:
-          version: latest
+          version: ${{ steps.toolchain.outputs.moonc }}
       - run: moon version --all
       - run: bash scripts/ci-moon-update.sh
       - name: Package macOS (debug)
