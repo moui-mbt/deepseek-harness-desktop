@@ -834,7 +834,25 @@ test "settings dialog accepts pointer editing cancel and save" {
       label=Some("Cancel"),
     ),
   )
-  assert_true(runtime.draw_frame().overlay_bounds is None)
+  // Closing is now asynchronous: the removal is retained as a fading ghost
+  // (exit retention) and the presentation leaves the tree on the next pumped
+  // frame. Pump until it is gone.
+  let mut pumps = 0
+  let mut closed = runtime.draw_frame().overlay_bounds is None
+  while pumps < 10 && !closed {
+    runtime.advance_time(200.0)
+    closed = runtime.draw_frame().overlay_bounds is None
+    pumps = pumps + 1
+    let snapshot = runtime.inspector_snapshot()
+    let leftovers : Array[String] = []
+    for vnode in snapshot.view_tree().nodes() {
+      if vnode.kind() == "PresentationSurface" ||
+        vnode.kind() == "PresentationBarrier" {
+        leftovers.push(vnode.kind())
+      }
+    }
+  }
+  assert_true(closed)
 
   assert_true(runtime.dispatch_action_command(command))
   ignore(runtime.draw_frame())
