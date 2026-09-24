@@ -4,15 +4,15 @@ pub fn update(model : Model, msg : Msg) -> Model {
     WebViewEvent(event) =>
       match event {
         @webview_host.WebViewEvent::NavigationRequested(url) =>
-          { ..model, url, status: "loading" }
+          { ..model, url, status: "loading", }
         @webview_host.WebViewEvent::NavigationStarted(navigation) =>
-          { ..model, url: navigation.url, status: "loading" }
+          { ..model, url: navigation.url, status: "loading", }
         @webview_host.WebViewEvent::NavigationCommitted(navigation) =>
-          { ..model, url: navigation.url, status: "loaded" }
+          { ..model, url: navigation.url, status: "loaded", }
         @webview_host.WebViewEvent::NavigationFinished(navigation) =>
-          { ..model, url: navigation.url, status: "ready" }
+          { ..model, url: navigation.url, status: "ready", }
         @webview_host.WebViewEvent::NavigationFailed(_, _url, reason) =>
-          { ..model, status: "failed: " + reason.message }
+          { ..model, status: "failed: " + reason.message, }
         @webview_host.WebViewEvent::TitleChanged(title) => { ..model, title, }
         @webview_host.WebViewEvent::CanGoBackChanged(_)
         | @webview_host.WebViewEvent::CanGoForwardChanged(_)
@@ -63,7 +63,7 @@ pub fn update(model : Model, msg : Msg) -> Model {
     SystemColorSchemeLoaded(result) =>
       match result {
         @services.ServiceTaskResult::Success(value) =>
-          { ..model, system_color_scheme: value }
+          { ..model, system_color_scheme: value, }
         _ => model
       }
     ChatSettingsLoaded(result) => {
@@ -99,9 +99,9 @@ pub fn update(model : Model, msg : Msg) -> Model {
         settings_writes_pending: 0,
       }
     RequestUrlChanged(value) if !model.settings_saving =>
-      { ..model, request_url_input: value, settings_error: "" }
+      { ..model, request_url_input: value, settings_error: "", }
     ChatUrlChanged(value) if !model.settings_saving =>
-      { ..model, chat_url_input: value, settings_error: "" }
+      { ..model, chat_url_input: value, settings_error: "", }
     ThemeModeChanged(value) if !model.settings_saving =>
       {
         ..model,
@@ -165,7 +165,7 @@ pub fn update(model : Model, msg : Msg) -> Model {
       }
     }
     SwitchSite => model
-    ToggleFloating => { ..model, floating_enabled: !model.floating_enabled }
+    ToggleFloating => { ..model, floating_enabled: !model.floating_enabled, }
     StartDshWeb =>
       if model.dsh_web_status != DshWebStatus::Stopped {
         model
@@ -288,11 +288,11 @@ pub fn update(model : Model, msg : Msg) -> Model {
             error.message,
           }
         @services.ServiceTaskResult::Cancelled =>
-          { ..model, status: "failed: DSH cleanup was cancelled" }
+          { ..model, status: "failed: DSH cleanup was cancelled", }
       }
     DshProbeTick => model
     FloatingSecondaryTap =>
-      update({ ..model, floating_collapsed: false }, OpenSettings)
+      update({ ..model, floating_collapsed: false, }, OpenSettings)
     FloatingDragged(event) => update_floating_drag(model, event, None, None)
     FloatingDraggedInViewport(event, width, height) =>
       update_floating_drag(model, event, Some(width), Some(height))
@@ -304,7 +304,7 @@ pub fn update(model : Model, msg : Msg) -> Model {
     // Kept for callers/tests using the original single-setting message.
     SettingsSaved(value, result) =>
       apply_settings_result(
-        { ..model, settings_writes_pending: 1 },
+        { ..model, settings_writes_pending: 1, },
         Harness,
         value,
         result,

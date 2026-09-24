@@ -119,12 +119,12 @@ pub fn Model::new(
 pub fn WebViewCapability::available(
   description? : String = "Native WebView embedding is available.",
 ) -> WebViewCapability {
-  { available: true, description }
+  { available: true, description, }
 }
 
 ///|
 pub fn WebViewCapability::unavailable(
   description? : String = "Native WebView is unavailable on this host.",
 ) -> WebViewCapability {
-  { available: false, description }
+  { available: false, description, }
 }

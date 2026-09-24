@@ -18,7 +18,7 @@ test "dsh lifecycle surfaces process errors" {
   assert_true(failed_start.dsh_web_status == DshWebStatus::Stopped)
   inspect(failed_start.status, content="failed to start DSH: command missing")
   let running = update(
-    { ..starting, dsh_web_status: DshWebStatus::Stopping },
+    { ..starting, dsh_web_status: DshWebStatus::Stopping, },
     DshStopResult(
       @services.ServiceTaskResult::Failure(
         @services.ServiceError::new(code="stop", message="not owned"),

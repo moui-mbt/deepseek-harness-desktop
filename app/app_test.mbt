@@ -17,7 +17,9 @@ test "dsh desktop emits native placement for the local Harness surface" {
     width=1280.0,
     height=820.0,
   )
-  assert_true(runtime.dispatch_action_command(@app.toggle_floating_action_command()))
+  assert_true(
+    runtime.dispatch_action_command(@app.toggle_floating_action_command()),
+  )
   let frame = runtime.draw_frame()
   inspect(frame.platform_views.length(), content="1")
   inspect(frame.platform_views[0].id, content="dsh-desktop-surface")
@@ -82,7 +84,10 @@ test "dsh desktop tracks WebView lifecycle without duplicating Web state" {
 test "dsh desktop switches between Harness and Chat roots" {
   let initial = @app.Model::new(capability=@app.WebViewCapability::available())
   let ready = @app.update(
-    @app.update(initial, SettingsLoaded(@services.ServiceTaskResult::Success(None))),
+    @app.update(
+      initial,
+      SettingsLoaded(@services.ServiceTaskResult::Success(None)),
+    ),
     ChatSettingsLoaded(@services.ServiceTaskResult::Success(None)),
   )
   assert_true(ready.active_site == @app.Site::Harness)
@@ -148,7 +153,11 @@ test "dsh desktop sends explicit dark appearance to a light-system WebView" {
   let settings = @services.SettingsServices::new(read=key => {
     @services.ServiceTask::succeed(
       key="settings:read",
-      value=if key == @app.theme_mode_settings_key { Some("dark") } else { None },
+      value=if key == @app.theme_mode_settings_key {
+        Some("dark")
+      } else {
+        None
+      },
     )
   })
   let appearance = @services.AppearanceServices::new(system_color_scheme=() => {
@@ -189,7 +198,9 @@ test "dsh desktop floating button receives primary pointer input" {
     width=1280.0,
     height=820.0,
   )
-  assert_true(runtime.dispatch_action_command(@app.toggle_floating_action_command()))
+  assert_true(
+    runtime.dispatch_action_command(@app.toggle_floating_action_command()),
+  )
   ignore(runtime.draw_frame())
   let button = test_semantics_node(
     runtime,
@@ -327,7 +338,9 @@ test "dsh desktop drag keeps the native overlay at the free position" {
     width=1280.0,
     height=820.0,
   )
-  assert_true(runtime.dispatch_action_command(@app.toggle_floating_action_command()))
+  assert_true(
+    runtime.dispatch_action_command(@app.toggle_floating_action_command()),
+  )
   ignore(runtime.draw_frame())
   let button = test_semantics_node(
     runtime,
@@ -537,7 +550,9 @@ test "dsh desktop rejects invalid persisted and edited URLs" {
   assert_true(rejected.settings_presented)
   assert_false(rejected.settings_saving)
   assert_true(rejected.settings_error != "")
-  assert_true(@app.normalize_request_url(" https://example.test/path ") is Some(_))
+  assert_true(
+    @app.normalize_request_url(" https://example.test/path ") is Some(_),
+  )
   assert_true(@app.normalize_request_url("http://") is None)
 }
 
@@ -653,7 +668,9 @@ test "dsh desktop menu bar exposes site switch and floating toggle" {
     }
   })
   inspect(commands.length(), content="2")
-  assert_true(commands.any(command => command.label == "Switch Chat/DSH @app.Site"))
+  assert_true(
+    commands.any(command => command.label == "Switch Chat/DSH @app.Site"),
+  )
   assert_true(
     commands.any(command => command.label == "Toggle Floating Button"),
   )
@@ -665,7 +682,9 @@ test "dsh desktop menu bar exposes site switch and floating toggle" {
   let initial = runtime.draw_frame()
   assert_true(initial.overlay_bounds is None)
   // Switch @app.Site reuses the same command identity as the floating button.
-  assert_true(runtime.dispatch_action_command(@app.switch_site_action_command()))
+  assert_true(
+    runtime.dispatch_action_command(@app.switch_site_action_command()),
+  )
   let switched = runtime.draw_frame()
   inspect(switched.platform_views[0].property_or("url", ""), content="")
   runtime.dispatch_event(
@@ -680,11 +699,15 @@ test "dsh desktop menu bar exposes site switch and floating toggle" {
     ),
   )
   // Toggle Floating shows the button without touching the WebView.
-  assert_true(runtime.dispatch_action_command(@app.toggle_floating_action_command()))
+  assert_true(
+    runtime.dispatch_action_command(@app.toggle_floating_action_command()),
+  )
   let shown = runtime.draw_frame()
   assert_true(shown.overlay_bounds is Some(_))
   assert_true(shown.platform_views.length() == 1)
-  assert_true(runtime.dispatch_action_command(@app.toggle_floating_action_command()))
+  assert_true(
+    runtime.dispatch_action_command(@app.toggle_floating_action_command()),
+  )
   let hidden = runtime.draw_frame()
   assert_true(hidden.overlay_bounds is None)
 }
@@ -759,7 +782,9 @@ test "dsh desktop keeps Harness and Chat loaded while switching visibility" {
       command.controller_id == "dsh-desktop-chat-surface"
     }),
   )
-  assert_true(runtime.dispatch_action_command(@app.switch_site_action_command()))
+  assert_true(
+    runtime.dispatch_action_command(@app.switch_site_action_command()),
+  )
   let switched = runtime.draw_frame()
   inspect(switched.platform_views.length(), content="2")
   inspect(
@@ -768,7 +793,9 @@ test "dsh desktop keeps Harness and Chat loaded while switching visibility" {
   )
   inspect(switched.platform_views[1].property_or("visible", ""), content="true")
   inspect(host.drain_commands(_ => ()), content="0")
-  assert_true(runtime.dispatch_action_command(@app.switch_site_action_command()))
+  assert_true(
+    runtime.dispatch_action_command(@app.switch_site_action_command()),
+  )
   let switched_back = runtime.draw_frame()
   inspect(
     switched_back.platform_views[0].property_or("visible", ""),
@@ -903,8 +930,12 @@ test "dsh desktop menu bar exposes DSH Web start and stop" {
     height=820.0,
   )
   ignore(runtime.draw_frame())
-  assert_true(runtime.dispatch_action_command(@app.start_dsh_web_action_command()))
-  assert_true(runtime.dispatch_action_command(@app.stop_dsh_web_action_command()))
+  assert_true(
+    runtime.dispatch_action_command(@app.start_dsh_web_action_command()),
+  )
+  assert_true(
+    runtime.dispatch_action_command(@app.stop_dsh_web_action_command()),
+  )
 }
 
 ///|
@@ -965,10 +996,14 @@ test "dsh desktop shows stopped placeholder instead of WebView" {
     height=820.0,
   )
   ignore(runtime.draw_frame())
-  assert_true(runtime.dispatch_action_command(@app.stop_dsh_web_action_command()))
+  assert_true(
+    runtime.dispatch_action_command(@app.stop_dsh_web_action_command()),
+  )
   let frame = runtime.draw_frame()
   inspect(frame.platform_views.length(), content="0")
-  assert_true(runtime.dispatch_action_command(@app.start_dsh_web_action_command()))
+  assert_true(
+    runtime.dispatch_action_command(@app.start_dsh_web_action_command()),
+  )
   let restarted_frame = runtime.draw_frame()
   // After Start, the WebView returns (navigation effect may be pending, but
   // the view still requests a platform view when settings are ready).

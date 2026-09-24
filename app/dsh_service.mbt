@@ -43,7 +43,7 @@ pub fn DshService::new(
     )
   },
 ) -> DshService {
-  { check_fn: check, start_fn: start, stop_fn: stop }
+  { check_fn: check, start_fn: start, stop_fn: stop, }
 }
 
 ///|
