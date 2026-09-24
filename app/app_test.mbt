@@ -1,9 +1,9 @@
 ///|
 test "dsh desktop hides the floating button by default" {
-  let model = Model::new(capability=WebViewCapability::available())
+  let model = @app.Model::new(capability=@app.WebViewCapability::available())
   assert_false(model.floating_enabled)
   let runtime = test_runtime(
-    program(capability=WebViewCapability::available()),
+    @app.program(capability=@app.WebViewCapability::available()),
     width=1280.0,
     height=820.0,
   )
@@ -13,11 +13,11 @@ test "dsh desktop hides the floating button by default" {
 ///|
 test "dsh desktop emits native placement for the local Harness surface" {
   let runtime = test_runtime(
-    program(capability=WebViewCapability::available()),
+    @app.program(capability=@app.WebViewCapability::available()),
     width=1280.0,
     height=820.0,
   )
-  assert_true(runtime.dispatch_action_command(toggle_floating_action_command()))
+  assert_true(runtime.dispatch_action_command(@app.toggle_floating_action_command()))
   let frame = runtime.draw_frame()
   inspect(frame.platform_views.length(), content="1")
   inspect(frame.platform_views[0].id, content="dsh-desktop-surface")
@@ -57,7 +57,7 @@ test "dsh desktop emits native placement for the local Harness surface" {
 ///|
 test "dsh desktop falls back without a native WebView" {
   let runtime = test_runtime(
-    program(capability=WebViewCapability::unavailable()),
+    @app.program(capability=@app.WebViewCapability::unavailable()),
     width=1280.0,
     height=820.0,
   )
@@ -67,55 +67,55 @@ test "dsh desktop falls back without a native WebView" {
 
 ///|
 test "dsh desktop tracks WebView lifecycle without duplicating Web state" {
-  let initial = Model::new(capability=WebViewCapability::available())
-  let loaded = update(
+  let initial = @app.Model::new(capability=@app.WebViewCapability::available())
+  let loaded = @app.update(
     initial,
-    Msg::WebViewEvent(
-      @webview_host.WebViewEvent::NavigationRequested(default_url),
+    @app.Msg::WebViewEvent(
+      @webview_host.WebViewEvent::NavigationRequested(@app.default_url),
     ),
   )
   inspect(loaded.status, content="loading")
-  inspect(loaded.url, content=default_url)
+  inspect(loaded.url, content=@app.default_url)
 }
 
 ///|
 test "dsh desktop switches between Harness and Chat roots" {
-  let initial = Model::new(capability=WebViewCapability::available())
-  let ready = update(
-    update(initial, SettingsLoaded(@services.ServiceTaskResult::Success(None))),
+  let initial = @app.Model::new(capability=@app.WebViewCapability::available())
+  let ready = @app.update(
+    @app.update(initial, SettingsLoaded(@services.ServiceTaskResult::Success(None))),
     ChatSettingsLoaded(@services.ServiceTaskResult::Success(None)),
   )
-  assert_true(ready.active_site == Site::Harness)
-  let chat = update(ready, SwitchSite)
-  assert_true(chat.active_site == Site::Chat)
-  inspect(chat.url, content=default_chat_url)
-  let harness = update(chat, SwitchSite)
-  assert_true(harness.active_site == Site::Harness)
-  inspect(harness.url, content=default_url)
+  assert_true(ready.active_site == @app.Site::Harness)
+  let chat = @app.update(ready, SwitchSite)
+  assert_true(chat.active_site == @app.Site::Chat)
+  inspect(chat.url, content=@app.default_chat_url)
+  let harness = @app.update(chat, SwitchSite)
+  assert_true(harness.active_site == @app.Site::Harness)
+  inspect(harness.url, content=@app.default_url)
 }
 
 ///|
 test "dsh desktop resolves system dark and light theme modes" {
-  let model = Model::new(capability=WebViewCapability::available())
-  assert_true(model.theme_mode == ThemeMode::System)
+  let model = @app.Model::new(capability=@app.WebViewCapability::available())
+  assert_true(model.theme_mode == @app.ThemeMode::System)
   assert_true(
-    ThemeMode::System.resolve_scheme(@state.ColorScheme::Dark) ==
+    @app.ThemeMode::System.resolve_scheme(@state.ColorScheme::Dark) ==
     @state.ColorScheme::Dark,
   )
   assert_true(
-    ThemeMode::Dark.resolve_scheme(@state.ColorScheme::Light) ==
+    @app.ThemeMode::Dark.resolve_scheme(@state.ColorScheme::Light) ==
     @state.ColorScheme::Dark,
   )
   assert_true(
-    ThemeMode::Light.resolve_scheme(@state.ColorScheme::Dark) ==
+    @app.ThemeMode::Light.resolve_scheme(@state.ColorScheme::Dark) ==
     @state.ColorScheme::Light,
   )
   assert_true(
-    ThemeMode::Dark.resolve_theme(@state.ColorScheme::Light).scheme ==
+    @app.ThemeMode::Dark.resolve_theme(@state.ColorScheme::Light).scheme ==
     @state.ColorScheme::Dark,
   )
   assert_true(
-    ThemeMode::Light.resolve_theme(@state.ColorScheme::Dark).scheme ==
+    @app.ThemeMode::Light.resolve_theme(@state.ColorScheme::Dark).scheme ==
     @state.ColorScheme::Light,
   )
   assert_true(
@@ -127,18 +127,18 @@ test "dsh desktop resolves system dark and light theme modes" {
 
 ///|
 test "dsh desktop loads and edits the persisted theme mode" {
-  let initial = Model::new(capability=WebViewCapability::available())
-  let loaded = update(
+  let initial = @app.Model::new(capability=@app.WebViewCapability::available())
+  let loaded = @app.update(
     initial,
     ThemeModeLoaded(@services.ServiceTaskResult::Success(Some("dark"))),
   )
-  assert_true(loaded.theme_mode == ThemeMode::Dark)
-  assert_true(loaded.theme_mode_input == ThemeMode::Dark)
-  let opened = update(loaded, OpenSettings)
-  let edited = update(opened, ThemeModeChanged("light"))
-  assert_true(edited.theme_mode == ThemeMode::Dark)
-  assert_true(edited.theme_mode_input == ThemeMode::Light)
-  let saving = update(edited, SaveSettings)
+  assert_true(loaded.theme_mode == @app.ThemeMode::Dark)
+  assert_true(loaded.theme_mode_input == @app.ThemeMode::Dark)
+  let opened = @app.update(loaded, OpenSettings)
+  let edited = @app.update(opened, ThemeModeChanged("light"))
+  assert_true(edited.theme_mode == @app.ThemeMode::Dark)
+  assert_true(edited.theme_mode_input == @app.ThemeMode::Light)
+  let saving = @app.update(edited, SaveSettings)
   assert_true(saving.settings_saving)
   inspect(saving.settings_writes_pending, content="3")
 }
@@ -148,7 +148,7 @@ test "dsh desktop sends explicit dark appearance to a light-system WebView" {
   let settings = @services.SettingsServices::new(read=key => {
     @services.ServiceTask::succeed(
       key="settings:read",
-      value=if key == theme_mode_settings_key { Some("dark") } else { None },
+      value=if key == @app.theme_mode_settings_key { Some("dark") } else { None },
     )
   })
   let appearance = @services.AppearanceServices::new(system_color_scheme=() => {
@@ -161,7 +161,7 @@ test "dsh desktop sends explicit dark appearance to a light-system WebView" {
     services=@services.AppServices::new(settings~, appearance~),
   )
   let runtime = test_runtime(
-    program(capability=WebViewCapability::available(), environment~),
+    @app.program(capability=@app.WebViewCapability::available(), environment~),
     width=1280.0,
     height=820.0,
   )
@@ -172,9 +172,9 @@ test "dsh desktop sends explicit dark appearance to a light-system WebView" {
 
 ///|
 test "dsh desktop secondary floating tap opens settings" {
-  let model = update(
-    update(
-      Model::new(capability=WebViewCapability::available()),
+  let model = @app.update(
+    @app.update(
+      @app.Model::new(capability=@app.WebViewCapability::available()),
       ToggleFloating,
     ),
     FloatingSecondaryTap,
@@ -185,11 +185,11 @@ test "dsh desktop secondary floating tap opens settings" {
 ///|
 test "dsh desktop floating button receives primary pointer input" {
   let runtime = test_runtime(
-    program(capability=WebViewCapability::available()),
+    @app.program(capability=@app.WebViewCapability::available()),
     width=1280.0,
     height=820.0,
   )
-  assert_true(runtime.dispatch_action_command(toggle_floating_action_command()))
+  assert_true(runtime.dispatch_action_command(@app.toggle_floating_action_command()))
   ignore(runtime.draw_frame())
   let button = test_semantics_node(
     runtime,
@@ -216,7 +216,7 @@ test "dsh desktop floating button receives primary pointer input" {
       "dsh-desktop-surface",
       @core.PlatformViewEvent::Named(
         name="navigation-finished",
-        value=default_chat_url,
+        value=@app.default_chat_url,
         detail="",
         flag=false,
       ),
@@ -246,11 +246,11 @@ test "dsh desktop floating button receives primary pointer input" {
 
 ///|
 test "dsh desktop floating button keeps a free position away from edges" {
-  let model = update(
-    Model::new(capability=WebViewCapability::available()),
+  let model = @app.update(
+    @app.Model::new(capability=@app.WebViewCapability::available()),
     ToggleFloating,
   )
-  let moved = update(
+  let moved = @app.update(
     model,
     FloatingDragged({
       phase: @core.DragGesturePhase::Started,
@@ -260,7 +260,7 @@ test "dsh desktop floating button keeps a free position away from edges" {
       translation: @core.Point::new(x=-120.0, y=40.0),
     }),
   )
-  let free = update(
+  let free = @app.update(
     moved,
     FloatingDragged({
       phase: @core.DragGesturePhase::Changed,
@@ -270,7 +270,7 @@ test "dsh desktop floating button keeps a free position away from edges" {
       translation: @core.Point::new(x=-320.0, y=80.0),
     }),
   )
-  let settled = update(
+  let settled = @app.update(
     free,
     FloatingDragged({
       phase: @core.DragGesturePhase::Ended,
@@ -288,11 +288,11 @@ test "dsh desktop floating button keeps a free position away from edges" {
 
 ///|
 test "dsh desktop floating button docks and leaves a visible edge tab" {
-  let model = update(
-    Model::new(capability=WebViewCapability::available()),
+  let model = @app.update(
+    @app.Model::new(capability=@app.WebViewCapability::available()),
     ToggleFloating,
   )
-  let moved = update(
+  let moved = @app.update(
     model,
     FloatingDragged({
       phase: @core.DragGesturePhase::Started,
@@ -302,7 +302,7 @@ test "dsh desktop floating button docks and leaves a visible edge tab" {
       translation: @core.Point::new(x=-420.0, y=20.0),
     }),
   )
-  let docked = update(
+  let docked = @app.update(
     moved,
     FloatingDragged({
       phase: @core.DragGesturePhase::Ended,
@@ -315,7 +315,7 @@ test "dsh desktop floating button docks and leaves a visible edge tab" {
   assert_true(docked.floating_left)
   assert_true(docked.floating_collapsed)
   inspect(docked.floating_x, content="0")
-  let expanded = update(docked, FloatingSecondaryTap)
+  let expanded = @app.update(docked, FloatingSecondaryTap)
   assert_false(expanded.floating_collapsed)
   assert_true(expanded.settings_presented)
 }
@@ -323,11 +323,11 @@ test "dsh desktop floating button docks and leaves a visible edge tab" {
 ///|
 test "dsh desktop drag keeps the native overlay at the free position" {
   let runtime = test_runtime(
-    program(capability=WebViewCapability::available()),
+    @app.program(capability=@app.WebViewCapability::available()),
     width=1280.0,
     height=820.0,
   )
-  assert_true(runtime.dispatch_action_command(toggle_floating_action_command()))
+  assert_true(runtime.dispatch_action_command(@app.toggle_floating_action_command()))
   ignore(runtime.draw_frame())
   let button = test_semantics_node(
     runtime,
@@ -373,11 +373,11 @@ test "dsh desktop drag keeps the native overlay at the free position" {
 
 ///|
 test "dsh desktop can dock from either side using the viewport" {
-  let model = update(
-    Model::new(capability=WebViewCapability::available()),
+  let model = @app.update(
+    @app.Model::new(capability=@app.WebViewCapability::available()),
     ToggleFloating,
   )
-  let left_docked = update(
+  let left_docked = @app.update(
     model,
     FloatingDraggedInViewport(
       {
@@ -391,7 +391,7 @@ test "dsh desktop can dock from either side using the viewport" {
       820.0,
     ),
   )
-  let left_moved = update(
+  let left_moved = @app.update(
     left_docked,
     FloatingDraggedInViewport(
       {
@@ -405,7 +405,7 @@ test "dsh desktop can dock from either side using the viewport" {
       820.0,
     ),
   )
-  let left_free = update(
+  let left_free = @app.update(
     left_moved,
     FloatingDraggedInViewport(
       {
@@ -419,7 +419,7 @@ test "dsh desktop can dock from either side using the viewport" {
       820.0,
     ),
   )
-  let right_docked = update(
+  let right_docked = @app.update(
     left_free,
     FloatingDraggedInViewport(
       {
@@ -435,7 +435,7 @@ test "dsh desktop can dock from either side using the viewport" {
   )
   assert_false(right_docked.floating_left)
   assert_true(right_docked.floating_collapsed)
-  let right_free = update(
+  let right_free = @app.update(
     right_docked,
     FloatingDraggedInViewport(
       {
@@ -458,7 +458,7 @@ test "dsh desktop can dock from either side using the viewport" {
 test "dsh desktop runs the native chrome hook after navigation" {
   let loaded_url = Ref("")
   let runtime = test_runtime(
-    program(capability=WebViewCapability::available(), on_navigation_finished=url => {
+    @app.program(capability=@app.WebViewCapability::available(), on_navigation_finished=url => {
       loaded_url.val = url
     }),
     width=1280.0,
@@ -475,7 +475,7 @@ test "dsh desktop runs the native chrome hook after navigation" {
       ),
     ),
   )
-  inspect(loaded_url.val, content=default_url)
+  inspect(loaded_url.val, content=@app.default_url)
 }
 
 ///|
@@ -487,7 +487,7 @@ test "dsh desktop waits for settings before placing the WebView" {
     services=@services.AppServices::new(settings=pending_settings),
   )
   let runtime = test_runtime(
-    program(capability=WebViewCapability::available(), environment~),
+    @app.program(capability=@app.WebViewCapability::available(), environment~),
     width=1280.0,
     height=820.0,
   )
@@ -501,7 +501,7 @@ test "dsh desktop loads a valid persisted request URL" {
   let settings = @services.SettingsServices::new(read=_key => {
     @services.ServiceTask::succeed(key="settings:read", value=Some(persisted))
   })
-  let dsh_service = DshService::new(check=url => {
+  let dsh_service = @app.DshService::new(check=url => {
     checked_url.val = url
     @services.ServiceTask::succeed(key="dsh:check", value=true)
   })
@@ -509,8 +509,8 @@ test "dsh desktop loads a valid persisted request URL" {
     services=@services.AppServices::new(settings~),
   )
   let runtime = test_runtime(
-    program(
-      capability=WebViewCapability::available(),
+    @app.program(
+      capability=@app.WebViewCapability::available(),
       environment~,
       dsh_service~,
     ),
@@ -525,35 +525,35 @@ test "dsh desktop loads a valid persisted request URL" {
 
 ///|
 test "dsh desktop rejects invalid persisted and edited URLs" {
-  let initial = Model::new(capability=WebViewCapability::available())
-  let loaded = update(
+  let initial = @app.Model::new(capability=@app.WebViewCapability::available())
+  let loaded = @app.update(
     initial,
     SettingsLoaded(@services.ServiceTaskResult::Success(Some("file:///tmp"))),
   )
-  inspect(loaded.url, content=default_url)
-  let opened = update(loaded, OpenSettings)
-  let edited = update(opened, RequestUrlChanged("ftp://example.test"))
-  let rejected = update(edited, SaveSettings)
+  inspect(loaded.url, content=@app.default_url)
+  let opened = @app.update(loaded, OpenSettings)
+  let edited = @app.update(opened, RequestUrlChanged("ftp://example.test"))
+  let rejected = @app.update(edited, SaveSettings)
   assert_true(rejected.settings_presented)
   assert_false(rejected.settings_saving)
   assert_true(rejected.settings_error != "")
-  assert_true(normalize_request_url(" https://example.test/path ") is Some(_))
-  assert_true(normalize_request_url("http://") is None)
+  assert_true(@app.normalize_request_url(" https://example.test/path ") is Some(_))
+  assert_true(@app.normalize_request_url("http://") is None)
 }
 
 ///|
 test "dsh desktop applies successful settings and preserves failures" {
-  let loaded = update(
-    Model::new(capability=WebViewCapability::available()),
+  let loaded = @app.update(
+    @app.Model::new(capability=@app.WebViewCapability::available()),
     SettingsLoaded(@services.ServiceTaskResult::Success(None)),
   )
-  let opened = update(loaded, OpenSettings)
-  let saving = update(
-    update(opened, RequestUrlChanged("https://next.example.test")),
+  let opened = @app.update(loaded, OpenSettings)
+  let saving = @app.update(
+    @app.update(opened, RequestUrlChanged("https://next.example.test")),
     SaveSettings,
   )
   assert_true(saving.settings_saving)
-  let failed = update(
+  let failed = @app.update(
     saving,
     SettingsSaved(
       "https://next.example.test",
@@ -564,7 +564,7 @@ test "dsh desktop applies successful settings and preserves failures" {
   )
   assert_true(failed.settings_presented)
   inspect(failed.settings_error, content="write failed")
-  let saved = update(
+  let saved = @app.update(
     saving,
     SettingsSaved(
       "https://next.example.test",
@@ -574,25 +574,25 @@ test "dsh desktop applies successful settings and preserves failures" {
   assert_false(saved.settings_presented)
   inspect(saved.url, content="https://next.example.test")
   inspect(saved.configured_url, content="https://next.example.test")
-  let cancelled = update(saving, CancelSettings)
-  let stale = update(
+  let cancelled = @app.update(saving, CancelSettings)
+  let stale = @app.update(
     cancelled,
     SettingsSaved(
       "https://next.example.test",
       @services.ServiceTaskResult::Success(()),
     ),
   )
-  inspect(stale.url, content=default_url)
+  inspect(stale.url, content=@app.default_url)
 }
 
 ///|
 test "settings command opens a full-window transparent native overlay" {
   let runtime = test_runtime(
-    program(capability=WebViewCapability::available()),
+    @app.program(capability=@app.WebViewCapability::available()),
     width=1280.0,
     height=820.0,
   )
-  let command = settings_action_command()
+  let command = @app.settings_action_command()
   inspect(command.display_label(), content="Settings\u{2026}")
   assert_true(runtime.dispatch_action_command(command))
   let frame = runtime.draw_frame()
@@ -605,7 +605,7 @@ test "settings command opens a full-window transparent native overlay" {
 
 ///|
 test "dsh desktop exposes standard Edit key equivalents" {
-  let menus = application_menus()
+  let menus = @app.application_menus()
   let menu = menus[1]
   inspect(menu.title, content="Edit")
   let commands = menu.items.filter_map(item => {
@@ -643,7 +643,7 @@ test "dsh desktop exposes standard Edit key equivalents" {
 
 ///|
 test "dsh desktop menu bar exposes site switch and floating toggle" {
-  let menus = application_menus()
+  let menus = @app.application_menus()
   let view_menu = menus[2]
   inspect(view_menu.title, content="View")
   let commands = view_menu.items.filter_map(item => {
@@ -653,19 +653,19 @@ test "dsh desktop menu bar exposes site switch and floating toggle" {
     }
   })
   inspect(commands.length(), content="2")
-  assert_true(commands.any(command => command.label == "Switch Chat/DSH Site"))
+  assert_true(commands.any(command => command.label == "Switch Chat/DSH @app.Site"))
   assert_true(
     commands.any(command => command.label == "Toggle Floating Button"),
   )
   let runtime = test_runtime(
-    program(capability=WebViewCapability::available()),
+    @app.program(capability=@app.WebViewCapability::available()),
     width=1280.0,
     height=820.0,
   )
   let initial = runtime.draw_frame()
   assert_true(initial.overlay_bounds is None)
-  // Switch Site reuses the same command identity as the floating button.
-  assert_true(runtime.dispatch_action_command(switch_site_action_command()))
+  // Switch @app.Site reuses the same command identity as the floating button.
+  assert_true(runtime.dispatch_action_command(@app.switch_site_action_command()))
   let switched = runtime.draw_frame()
   inspect(switched.platform_views[0].property_or("url", ""), content="")
   runtime.dispatch_event(
@@ -673,18 +673,18 @@ test "dsh desktop menu bar exposes site switch and floating toggle" {
       "dsh-desktop-surface",
       @core.PlatformViewEvent::Named(
         name="navigation-finished",
-        value=default_chat_url,
+        value=@app.default_chat_url,
         detail="",
         flag=false,
       ),
     ),
   )
   // Toggle Floating shows the button without touching the WebView.
-  assert_true(runtime.dispatch_action_command(toggle_floating_action_command()))
+  assert_true(runtime.dispatch_action_command(@app.toggle_floating_action_command()))
   let shown = runtime.draw_frame()
   assert_true(shown.overlay_bounds is Some(_))
   assert_true(shown.platform_views.length() == 1)
-  assert_true(runtime.dispatch_action_command(toggle_floating_action_command()))
+  assert_true(runtime.dispatch_action_command(@app.toggle_floating_action_command()))
   let hidden = runtime.draw_frame()
   assert_true(hidden.overlay_bounds is None)
 }
@@ -700,7 +700,7 @@ test "dsh desktop lifecycle does not replace startup menu callbacks" {
     services=@services.AppServices::new(menus~),
   )
   let runtime = test_runtime(
-    program(capability=WebViewCapability::available(), environment~),
+    @app.program(capability=@app.WebViewCapability::available(), environment~),
     width=1280.0,
     height=820.0,
   )
@@ -711,8 +711,8 @@ test "dsh desktop lifecycle does not replace startup menu callbacks" {
 ///|
 test "dsh desktop keeps Harness and Chat loaded while switching visibility" {
   let host = @webview_host.WebViewHost::new()
-  let harness = create_controller(host)
-  let chat = create_chat_controller(host)
+  let harness = @app.create_controller(host)
+  let chat = @app.create_chat_controller(host)
   let top_controls = _width => {
     [
       @webview_host.WebViewNoDragRegion::new(
@@ -724,8 +724,8 @@ test "dsh desktop keeps Harness and Chat loaded while switching visibility" {
     ]
   }
   let runtime = test_runtime(
-    program(
-      capability=WebViewCapability::available(),
+    @app.program(
+      capability=@app.WebViewCapability::available(),
       controller=Some(harness),
       chat_controller=Some(chat),
       no_drag_regions=top_controls,
@@ -759,7 +759,7 @@ test "dsh desktop keeps Harness and Chat loaded while switching visibility" {
       command.controller_id == "dsh-desktop-chat-surface"
     }),
   )
-  assert_true(runtime.dispatch_action_command(switch_site_action_command()))
+  assert_true(runtime.dispatch_action_command(@app.switch_site_action_command()))
   let switched = runtime.draw_frame()
   inspect(switched.platform_views.length(), content="2")
   inspect(
@@ -768,7 +768,7 @@ test "dsh desktop keeps Harness and Chat loaded while switching visibility" {
   )
   inspect(switched.platform_views[1].property_or("visible", ""), content="true")
   inspect(host.drain_commands(_ => ()), content="0")
-  assert_true(runtime.dispatch_action_command(switch_site_action_command()))
+  assert_true(runtime.dispatch_action_command(@app.switch_site_action_command()))
   let switched_back = runtime.draw_frame()
   inspect(
     switched_back.platform_views[0].property_or("visible", ""),
@@ -784,18 +784,18 @@ test "dsh desktop keeps Harness and Chat loaded while switching visibility" {
 ///|
 test "dsh desktop toggle floating button shows and hides the overlay" {
   let runtime = test_runtime(
-    program(capability=WebViewCapability::available()),
+    @app.program(capability=@app.WebViewCapability::available()),
     width=1280.0,
     height=820.0,
   )
   let initial = runtime.draw_frame()
   assert_true(initial.overlay_bounds is None)
-  let visible = update(
-    Model::new(capability=WebViewCapability::available()),
+  let visible = @app.update(
+    @app.Model::new(capability=@app.WebViewCapability::available()),
     ToggleFloating,
   )
   assert_true(visible.floating_enabled)
-  let hidden = update(visible, ToggleFloating)
+  let hidden = @app.update(visible, ToggleFloating)
   assert_false(hidden.floating_enabled)
 }
 
@@ -811,11 +811,11 @@ test "settings dialog accepts pointer editing cancel and save" {
     services=@services.AppServices::new(settings~),
   )
   let runtime = test_runtime(
-    program(capability=WebViewCapability::available(), environment~),
+    @app.program(capability=@app.WebViewCapability::available(), environment~),
     width=1280.0,
     height=820.0,
   )
-  let command = settings_action_command()
+  let command = @app.settings_action_command()
   assert_true(runtime.dispatch_action_command(command))
   ignore(runtime.draw_frame())
   let field = test_semantics_node(runtime, role=@core.SemanticsRole::TextField)
@@ -834,7 +834,25 @@ test "settings dialog accepts pointer editing cancel and save" {
       label=Some("Cancel"),
     ),
   )
-  assert_true(runtime.draw_frame().overlay_bounds is None)
+  // Closing is now asynchronous: the removal is retained as a fading ghost
+  // (exit retention) and the presentation leaves the tree on the next pumped
+  // frame. Pump until it is gone.
+  let mut pumps = 0
+  let mut closed = runtime.draw_frame().overlay_bounds is None
+  while pumps < 10 && !closed {
+    runtime.advance_time(200.0)
+    closed = runtime.draw_frame().overlay_bounds is None
+    pumps = pumps + 1
+    let snapshot = runtime.inspector_snapshot()
+    let leftovers : Array[String] = []
+    for vnode in snapshot.view_tree().nodes() {
+      if vnode.kind() == "PresentationSurface" ||
+        vnode.kind() == "PresentationBarrier" {
+        leftovers.push(vnode.kind())
+      }
+    }
+  }
+  assert_true(closed)
 
   assert_true(runtime.dispatch_action_command(command))
   ignore(runtime.draw_frame())
@@ -866,7 +884,7 @@ test "settings dialog accepts pointer editing cancel and save" {
 
 ///|
 test "dsh desktop menu bar exposes DSH Web start and stop" {
-  let menus = application_menus()
+  let menus = @app.application_menus()
   inspect(menus.length(), content="4")
   let dsh_menu = menus[3]
   inspect(dsh_menu.title, content="DSH")
@@ -880,77 +898,77 @@ test "dsh desktop menu bar exposes DSH Web start and stop" {
   assert_true(commands.any(command => command.label == "启动 DSH Web"))
   assert_true(commands.any(command => command.label == "关闭 DSH Web"))
   let runtime = test_runtime(
-    program(capability=WebViewCapability::available()),
+    @app.program(capability=@app.WebViewCapability::available()),
     width=1280.0,
     height=820.0,
   )
   ignore(runtime.draw_frame())
-  assert_true(runtime.dispatch_action_command(start_dsh_web_action_command()))
-  assert_true(runtime.dispatch_action_command(stop_dsh_web_action_command()))
+  assert_true(runtime.dispatch_action_command(@app.start_dsh_web_action_command()))
+  assert_true(runtime.dispatch_action_command(@app.stop_dsh_web_action_command()))
 }
 
 ///|
 test "dsh desktop starts and stops DSH Web via menu commands" {
-  let checking = Model::new(capability=WebViewCapability::available())
-  assert_true(checking.dsh_web_status == DshWebStatus::Starting)
-  let running = update(
+  let checking = @app.Model::new(capability=@app.WebViewCapability::available())
+  assert_true(checking.dsh_web_status == @app.DshWebStatus::Starting)
+  let running = @app.update(
     checking,
     DshCheckResult(@services.ServiceTaskResult::Success(true)),
   )
-  assert_true(running.dsh_web_status == DshWebStatus::Running)
-  let stopping = update(running, StopDshWeb)
-  assert_true(stopping.dsh_web_status == DshWebStatus::Stopping)
-  let stopped = update(
+  assert_true(running.dsh_web_status == @app.DshWebStatus::Running)
+  let stopping = @app.update(running, StopDshWeb)
+  assert_true(stopping.dsh_web_status == @app.DshWebStatus::Stopping)
+  let stopped = @app.update(
     stopping,
     DshStopResult(@services.ServiceTaskResult::Success(())),
   )
-  assert_true(stopped.dsh_web_status == DshWebStatus::Stopped)
+  assert_true(stopped.dsh_web_status == @app.DshWebStatus::Stopped)
   inspect(stopped.status, content="dsh web stopped")
   // Stopping twice is idempotent
-  let still_stopped = update(stopped, StopDshWeb)
-  assert_true(still_stopped.dsh_web_status == DshWebStatus::Stopped)
-  let restarting = update(stopped, StartDshWeb)
-  assert_true(restarting.dsh_web_status == DshWebStatus::Starting)
+  let still_stopped = @app.update(stopped, StopDshWeb)
+  assert_true(still_stopped.dsh_web_status == @app.DshWebStatus::Stopped)
+  let restarting = @app.update(stopped, StartDshWeb)
+  assert_true(restarting.dsh_web_status == @app.DshWebStatus::Starting)
   inspect(restarting.status, content="starting DSH Web")
   inspect(restarting.url, content=restarting.harness_url)
-  let spawned = update(
+  let spawned = @app.update(
     restarting,
     DshStartResult(@services.ServiceTaskResult::Success(())),
   )
-  assert_true(spawned.dsh_web_status == DshWebStatus::Starting)
-  let restarted = update(
+  assert_true(spawned.dsh_web_status == @app.DshWebStatus::Starting)
+  let restarted = @app.update(
     spawned,
     DshCheckResult(@services.ServiceTaskResult::Success(true)),
   )
-  assert_true(restarted.dsh_web_status == DshWebStatus::Running)
+  assert_true(restarted.dsh_web_status == @app.DshWebStatus::Running)
   inspect(restarted.status, content="connecting")
   // Starting twice is idempotent
-  let still_running = update(restarted, StartDshWeb)
-  assert_true(still_running.dsh_web_status == DshWebStatus::Running)
+  let still_running = @app.update(restarted, StartDshWeb)
+  assert_true(still_running.dsh_web_status == @app.DshWebStatus::Running)
 }
 
 ///|
 test "dsh desktop shows stopped placeholder instead of WebView" {
-  let stopped_model = update(
-    Model::new(capability=WebViewCapability::available()),
+  let stopped_model = @app.update(
+    @app.Model::new(capability=@app.WebViewCapability::available()),
     StopDshWeb,
   )
   // Direct view check without a runtime controller
-  let _stopped_view = view(stopped_model)
+  let _stopped_view = @app.view(stopped_model)
   ignore(_stopped_view)
   // The WebView controller is required for platform view emission; when
   // dsh_web_status is Stopped the view must not emit a web_view placement.
-  // We verify via the update/view path through a runtime.
+  // We verify via the @app.update/view path through a runtime.
   let runtime = test_runtime(
-    program(capability=WebViewCapability::available()),
+    @app.program(capability=@app.WebViewCapability::available()),
     width=1280.0,
     height=820.0,
   )
   ignore(runtime.draw_frame())
-  assert_true(runtime.dispatch_action_command(stop_dsh_web_action_command()))
+  assert_true(runtime.dispatch_action_command(@app.stop_dsh_web_action_command()))
   let frame = runtime.draw_frame()
   inspect(frame.platform_views.length(), content="0")
-  assert_true(runtime.dispatch_action_command(start_dsh_web_action_command()))
+  assert_true(runtime.dispatch_action_command(@app.start_dsh_web_action_command()))
   let restarted_frame = runtime.draw_frame()
   // After Start, the WebView returns (navigation effect may be pending, but
   // the view still requests a platform view when settings are ready).
@@ -1001,7 +1019,7 @@ fn test_click_node(
 
 ///|
 fn test_runtime(
-  program : @moui.Program[Model, Msg],
+  program : @moui.Program[@app.Model, @app.Msg],
   width~ : Double,
   height~ : Double,
 ) -> @runtime.AppRuntime {
