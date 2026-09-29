@@ -669,7 +669,7 @@ test "dsh desktop menu bar exposes site switch and floating toggle" {
   })
   inspect(commands.length(), content="2")
   assert_true(
-    commands.any(command => command.label == "Switch Chat/DSH @app.Site"),
+    commands.any(command => command.label == "Switch Chat/DSH Site"),
   )
   assert_true(
     commands.any(command => command.label == "Toggle Floating Button"),
@@ -681,7 +681,7 @@ test "dsh desktop menu bar exposes site switch and floating toggle" {
   )
   let initial = runtime.draw_frame()
   assert_true(initial.overlay_bounds is None)
-  // Switch @app.Site reuses the same command identity as the floating button.
+  // Switch Site reuses the same command identity as the floating button.
   assert_true(
     runtime.dispatch_action_command(@app.switch_site_action_command()),
   )
